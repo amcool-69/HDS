@@ -99,7 +99,8 @@ const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_9rioOwsc_HZpa42rSLiuYA_sZGfYvrk
     $("authTitle").textContent=signup?"Create your HDS account":"Welcome to HDS";
     $("authDescription").textContent=signup?"Pick a username and start connecting.":"Your conversations, all in one place.";
     $("usernameField").classList.toggle("hidden",!signup);
-    $("username").required=signup;
+    $("username").disabled = !signup;
+    $("username").required = signup;
     $("authSubmit").textContent=signup?"Create account":"Log in";
     $("switchText").textContent=signup?"Already have an account?":"New to HDS?";
     $("switchMode").textContent=signup?"Log in":"Create account";
@@ -223,7 +224,8 @@ const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_9rioOwsc_HZpa42rSLiuYA_sZGfYvrk
     stopRefresh();const {error}=await db.auth.signOut();if(error)alert(error.message);
     currentUser=null;myProfile=null;selectedUser=null;showAuth();setAuthMode(false);
   });
-  boot();
+  setAuthMode(false);
+boot();
 })();
 </script>
 </body>
