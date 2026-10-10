@@ -340,7 +340,7 @@ let query=db.from("profiles").select("id,username,verified,avatar").neq("id",cur
    
 list.innerHTML = peopleCache.map(person => `
   <button class="person ${selectedUser?.id === person.id ? "active" : ""}" data-id="${escapeHtml(person.id)}">
-    <span class="avatar">${escapeHtml(initials(person.username))}</span>
+    <span class="avatar">${person.avatar ? `<img src="${escapeHtml(person.avatar)}" alt="">` : escapeHtml(initials(person.username))}</span>
     <span class="person-info">
       <span class="person-name">
         ${escapeHtml(person.username)}${person.verified === true ? ` <img class="verified-badge" src="https://amcool-69.github.io/HDS/verified.png" alt="Verified" title="Verified account">` : ""}
