@@ -408,6 +408,89 @@ $("chatSub").textContent = "Direct message";
   });
 
   $("signOut").addEventListener("click",async()=>{
+    $("openSettings").addEventListener("click", () => {
+  $("settingsPanel").classList.toggle("hidden");
+});
+
+$("closeSettings").addEventListener("click", () => {
+  $("settingsPanel").classList.add("hidden");
+});
+
+$("changeAvatar").addEventListener("click", () => {
+  $("avatarFile").click();
+});
+
+$("avatarFile").addEventListener("change", async event => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  const status = $("avatarStatus");
+  const button = $("changeAvatar");
+
+  try {
+    if (!["image/png", "image/jpeg"].includes(file.type)) {
+      throw new Error("Choose a PNG or JPEG image.");
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error("The image must be 5 MB or smaller.");
+    }
+
+    if (!currentUser || !myProfile) {
+      throw new Error("Please sign in again.");
+    }
+
+    button.disabled = true;
+    status.textContent = "Uploading...";
+
+    const extension = file.type === "image/png" ? "png" : "jpg";
+    const path = `${currentUser.id}/${crypto.randomUUID()}.${extension}`;
+
+    const { error: uploadError } = await db.storage
+      .from("avatars")
+      .upload(path, file, {
+        contentType: file.type,
+        upsert: false
+      });
+
+    if (uploadError) throw uploadError;
+
+    const { data: urlData } = db.storage
+      .from("avatars")
+      .getPublicUrl(path);
+
+    const { error: saveError } = await db.rpc("set_my_avatar", {
+      p_avatar_url: urlData.publicUrl
+    });
+
+    if (saveError) throw saveError;
+
+    const { data: profile, error: profileError } = await db
+      .from("profiles")
+      .select("id,username,verified,avatar")
+      .eq("id", currentUser.id)
+      .single();
+
+    if (profileError) throw profileError;
+
+    myProfile = profile;
+
+    setAvatar($("myAvatar"), profile.avatar, profile.username);
+
+    status.textContent = "Profile picture updated!";
+
+    // Refresh the people list if your existing function supports it.
+    if (typeof loadPeople === "function") {
+      await loadPeople(true);
+    }
+  } catch (error) {
+    console.error("Avatar upload failed:", error);
+    status.textContent = error.message || "Upload failed.";
+  } finally {
+    button.disabled = false;
+    event.target.value = "";
+  }
+});
     stopRefresh();const {error}=await db.auth.signOut();if(error)alert(error.message);
     currentUser=null;myProfile=null;selectedUser=null;showAuth();setAuthMode(false);
   });
