@@ -752,7 +752,7 @@ $("resetBubbleSettings").addEventListener("click", async () => {
     const box=$("messages"), wasNearBottom=box.scrollHeight-box.scrollTop-box.clientHeight<100;
     box.innerHTML=(data||[]).map(message=>{
       const mine=message.sender_id===currentUser.id;
-      return `<div class="msg-row ${mine?"mine":""}"><div class="bubble">${escapeHtml(message.content)}</div><div class="msg-time">${mine?"You":" "+escapeHtml(selectedUser.username)} · ${escapeHtml(prettyTime(message.created_at))}</div></div>`;
+      return `<div class="msg-row ${mine?"mine":""}"><div class="bubble"><span class="bubble-text">${escapeHtml(message.content)}</span></div><div class="msg-time">${mine?"You":" "+escapeHtml(selectedUser.username)} · ${escapeHtml(prettyTime(message.created_at))}</div></div>`;
     }).join("");
     if(!data?.length)box.innerHTML='<div class="day-note">This is the beginning of your conversation. Say hi 👋</div>';
     if(!quiet||wasNearBottom)box.scrollTop=box.scrollHeight;
