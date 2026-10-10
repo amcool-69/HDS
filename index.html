@@ -111,15 +111,30 @@
 }
     
 /* HDS Custom Chat Bubbles */
+.msg-row {
+  max-width: min(70%, 500px);
+}
+
 .bubble {
   position: relative;
   background: color-mix(in srgb, var(--hds-incoming-color, #292938) 82%, transparent);
-  border: 5px solid transparent;
-  border-radius: 15px;
+  border: 3px solid transparent;
+  border-radius: 12px;
+  padding: 8px 10px;
   overflow: hidden;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
   box-sizing: border-box;
+}
+    /* Slightly more compact chat bubbles */
+.msg-row {
+  max-width: min(70%, 500px);
+}
+
+.bubble {
+  padding: 8px 10px;
+  border-width: 3px;
+  border-radius: 12px;
 }
 
 .bubble::before {
