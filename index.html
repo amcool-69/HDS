@@ -369,7 +369,9 @@ $("chatName").innerHTML =
       : ""
   }`;
 
-$("chatAvatar").textContent = initials(person.username);
+
+setAvatar($("chatAvatar"), person.avatar, person.username);
+
 $("chatSub").textContent = "Direct message";
 
     $("chatEmpty").classList.add("hidden");$("messages").classList.remove("hidden");$("composer").classList.remove("hidden");
