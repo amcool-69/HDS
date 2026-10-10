@@ -125,27 +125,50 @@
     
 
 
-/* HDS Custom Chat Bubbles */
-.msg-row {
+/* HDS Custom Chat Bubbles — corrected sizing */
+.messages .msg-row {
+  display: flex;
+  flex-direction: column;
+  align-self: flex-start;
+  flex: 0 0 auto;
+  width: fit-content;
   max-width: min(78%, 570px);
+  min-width: 0;
+  height: fit-content;
 }
 
-.bubble {
+.messages .msg-row.mine {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.messages .bubble {
   position: relative;
-  display: inline-block;
+  display: block;
   width: fit-content;
   max-width: 100%;
+  height: auto;
+  min-height: 0;
+  max-height: 280px;
+  flex: 0 0 auto;
   padding: 11px 14px;
   border-radius: 15px 15px 15px 5px;
-  background: color-mix(in srgb, var(--hds-message-color, #292938) 82%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--hds-message-color, #292938) 82%,
+    transparent
+  );
   border: 1px solid #2b2b3d;
   color: var(--hds-message-text-color, #f4f4fb);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
   box-sizing: border-box;
 }
 
-.bubble::before {
+.messages .bubble::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -158,19 +181,25 @@
   pointer-events: none;
 }
 
-.bubble-text {
+.messages .bubble-text {
   position: relative;
   z-index: 1;
   color: var(--hds-message-text-color, #f4f4fb);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
-.mine .bubble {
-  background: color-mix(in srgb, var(--hds-message-color, #8b5cf6) 82%, transparent);
+.messages .mine .bubble {
+  background: color-mix(
+    in srgb,
+    var(--hds-message-color, #8b5cf6) 82%,
+    transparent
+  );
   border-color: #8a62e3;
   border-radius: 15px 15px 5px 15px;
 }
 
-.mine .bubble::before {
+.messages .mine .bubble::before {
   background-image: var(--hds-message-border, none);
 }
 
