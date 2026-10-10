@@ -112,10 +112,22 @@
     
 /* HDS Custom Chat Bubbles */
 .bubble {
-  background: var(--hds-incoming-color, #1b1b2a);
-  border-color: var(--hds-incoming-color, #2b2b3d);
+  background: var(--hds-incoming-color, #292938);
+  border: 12px solid transparent;
   border-image-source: var(--hds-incoming-border, none);
-  border-image-slice: 30;
+  border-image-slice: 30 fill;
+  border-image-width: 12px;
+  border-image-repeat: stretch;
+  border-radius: 15px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  box-sizing: border-box;
+}
+
+.mine .bubble {
+  background: var(--hds-outgoing-color, #8b5cf6);
+  border-image-source: var(--hds-outgoing-border, none);
+  border-image-slice: 30 fill;
   border-image-width: 12px;
   border-image-repeat: stretch;
 }
