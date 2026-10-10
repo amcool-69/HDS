@@ -768,6 +768,7 @@ async function uploadBubbleBorder(file, direction) {
 }
 
 
+
 $("saveBubbleSettings").addEventListener("click", async () => {
   if (!currentUser) return;
 
@@ -781,20 +782,16 @@ $("saveBubbleSettings").addEventListener("click", async () => {
     const incomingFile = $("incomingBubbleFile").files?.[0];
     const outgoingFile = $("outgoingBubbleFile").files?.[0];
 
-    const incomingColor = $("incomingBubbleColor").value;
-    const outgoingColor = $("outgoingBubbleColor").value;
-
-    
-const nextSettings = {
-  user_id: currentUser.id,
-  incoming_color: incomingColor,
-  outgoing_color: outgoingColor,
-  incoming_text_color: $("incomingTextColor").value,
-  outgoing_text_color: $("outgoingTextColor").value,
-  incoming_border_path: bubbleSettings.incoming_border_path,
-  outgoing_border_path: bubbleSettings.outgoing_border_path,
-  updated_at: new Date().toISOString()
-};
+    const nextSettings = {
+      user_id: currentUser.id,
+      incoming_color: $("incomingBubbleColor").value,
+      outgoing_color: $("outgoingBubbleColor").value,
+      incoming_text_color: $("incomingTextColor").value,
+      outgoing_text_color: $("outgoingTextColor").value,
+      incoming_border_path: bubbleSettings.incoming_border_path,
+      outgoing_border_path: bubbleSettings.outgoing_border_path,
+      updated_at: new Date().toISOString()
+    };
 
     if (incomingFile) {
       nextSettings.incoming_border_path =
@@ -813,22 +810,29 @@ const nextSettings = {
     if (error) throw error;
 
     bubbleSettings = {
-      incoming_color: nextSettings.incoming_color,
-      outgoing_color: nextSettings.outgoing_color,
-      incoming_border_path: nextSettings.incoming_border_path,
-      outgoing_border_path: nextSettings.outgoing_border_path
+      ...DEFAULT_BUBBLE_SETTINGS,
+      ...nextSettings
     };
 
     applyBubbleSettings();
+
+    applyBubbleTextColors(
+      bubbleSettings.incoming_text_color,
+      bubbleSettings.outgoing_text_color
+    );
+
     showBubbleSettingsInForm();
 
     $("incomingBubbleFile").value = "";
     $("outgoingBubbleFile").value = "";
 
+    await loadMessages(true);
+
     status.textContent = "Bubble settings saved!";
   } catch (error) {
     console.error("Saving bubble settings failed:", error);
-    status.textContent = error.message || "Couldn't save bubble settings.";
+    status.textContent =
+      error.message || "Couldn't save bubble settings.";
   } finally {
     button.disabled = false;
   }
