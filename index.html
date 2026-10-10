@@ -610,6 +610,7 @@ function showBubbleSettingsInForm() {
 }
 
 
+
 async function loadBubbleSettings() {
   const { data, error } = await db
     .from("chat_bubble_settings")
@@ -628,19 +629,44 @@ async function loadBubbleSettings() {
 
   applyBubbleSettings();
 
-  applyBubbleTextColors(
-    bubbleSettings.incoming_text_color,
-    bubbleSettings.outgoing_text_color
-  );
+  if (typeof applyBubbleTextColors === "function") {
+    applyBubbleTextColors(
+      bubbleSettings.incoming_text_color,
+      bubbleSettings.outgoing_text_color
+    );
+  }
 
   showBubbleSettingsInForm();
 }
 
+async function uploadBubbleBorder(file, direction) {
+  if (!file || file.type !== "image/png") {
+    throw new Error("Choose a PNG image for the message border.");
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    throw new Error("The PNG border must be 5 MB or smaller.");
+  }
+
+  if (!currentUser) {
+    throw new Error("Please sign in again.");
+  }
+
+  const path =
+    `${currentUser.id}/${direction}-${crypto.randomUUID()}.png`;
+
+  const { error } = await db.storage
+    .from("bubble-borders")
+    .upload(path, file, {
+      contentType: "image/png",
+      upsert: false
+    });
 
   if (error) throw error;
 
   return path;
 }
+
 
 $("saveBubbleSettings").addEventListener("click", async () => {
   if (!currentUser) return;
