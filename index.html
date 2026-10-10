@@ -175,14 +175,28 @@ const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_9rioOwsc_HZpa42rSLiuYA_sZGfYvrk
   async function loadPeople(quiet=false){
     if(!currentUser||!myProfile)return;
     const term=$("userSearch").value.trim();
-    let query=db.from("profiles").select("id,username").neq("id",currentUser.id).order("username").limit(100);
+    
+let query=db.from("profiles").select("id,username,verified").neq("id",currentUser.id).order("username").limit(100);
+
     if(term)query=query.ilike("username",`%${term.replace(/[%_\\]/g,"\\$&")}%`);
     const {data,error}=await query;
     if(error){if(!quiet)showFatal("Couldn't load users. Check your profiles table permissions.");return;}
     peopleCache=data||[];
     const list=$("people");
     if(!peopleCache.length){list.innerHTML=`<div class="muted small" style="padding:12px">${term?"No users match that search.":"No other users yet. Share HDS with a friend!"}</div>`;return;}
-    list.innerHTML=peopleCache.map(person=>`<button class="person ${selectedUser?.id===person.id?"active":""}" data-id="${escapeHtml(person.id)}"><span class="avatar">${escapeHtml(initials(person.username))}</span><span class="person-info"><span class="person-name">${escapeHtml(person.username)}</span><span class="person-sub">Direct message</span></span></button>`).join("");
+   
+list.innerHTML = peopleCache.map(person => `
+  <button class="person ${selectedUser?.id === person.id ? "active" : ""}" data-id="${escapeHtml(person.id)}">
+    <span class="avatar">${escapeHtml(initials(person.username))}</span>
+    <span class="person-info">
+      <span class="person-name">
+        ${escapeHtml(person.username)}${person.verified === true ? ` <img class="verified-badge" src="https://amcool-69.github.io/HDS/verified.png" alt="Verified" title="Verified account">` : ""}
+      </span>
+      <span class="person-sub">Direct message</span>
+    </span>
+  </button>
+`).join("");
+
     list.querySelectorAll("[data-id]").forEach(button=>button.addEventListener("click",()=>selectPerson(peopleCache.find(p=>p.id===button.dataset.id))));
   }
 
