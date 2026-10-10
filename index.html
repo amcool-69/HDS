@@ -260,6 +260,75 @@
 }
     
 
+/* HDS: fit the entire app inside the browser window */
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  min-height: 0;
+}
+
+.app {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidebar,
+.chat {
+  min-height: 0;
+  min-width: 0;
+}
+
+.sidebar {
+  overflow: hidden;
+}
+
+.people {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.chat {
+  height: 100%;
+  overflow: hidden;
+}
+
+.chat-head,
+.composer {
+  flex-shrink: 0;
+}
+
+.messages,
+.empty {
+  min-height: 0;
+  min-width: 0;
+}
+
+.messages {
+  flex: 1 1 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.composer {
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+}
+
+@media (max-height: 499px) {
+  .app {
+    min-height: 0;
+  }
+}
+
 
   </style>
 </head>
