@@ -208,7 +208,17 @@ list.innerHTML = peopleCache.map(person => `
   async function selectPerson(person){
     if(!person||person.id===currentUser.id)return;
     selectedUser=person; app.classList.add("chat-open");
-    $("chatName").textContent=person.username;$("chatAvatar").textContent=initials(person.username);$("chatSub").textContent="Direct message";
+    
+$("chatName").innerHTML =
+  `${escapeHtml(person.username)}${
+    person.verified === true
+      ? ` <img class="verified-badge" src="https://amcool-69.github.io/HDS/verified.png" alt="Verified" title="Verified account">`
+      : ""
+  }`;
+
+$("chatAvatar").textContent = initials(person.username);
+$("chatSub").textContent = "Direct message";
+
     $("chatEmpty").classList.add("hidden");$("messages").classList.remove("hidden");$("composer").classList.remove("hidden");
     await loadPeople(true); await loadMessages();
     $("messageInput").focus();
