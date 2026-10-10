@@ -63,16 +63,24 @@
 }
 
 
+
 .settings-panel {
-  margin: 12px;
-  padding: 14px;
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 8px 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--panel2);
-  max-height: 80vh;
-  overflow-y: auto;
+  width: min(500px, calc(100vw - 16px));
+  max-height: none;
+  overflow: visible;
   box-sizing: border-box;
+  z-index: 1000;
 }
+
 
 
 .settings-heading {
