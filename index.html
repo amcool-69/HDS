@@ -125,33 +125,31 @@
     
 
 
-/* HDS Custom Chat Bubbles — corrected sizing */
+/* HDS compact chat bubbles */
 .messages .msg-row {
   display: flex;
   flex-direction: column;
-  align-self: flex-start;
-  flex: 0 0 auto;
-  width: fit-content;
-  max-width: min(78%, 570px);
+  align-self: stretch;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
-  height: fit-content;
+  flex: 0 0 auto;
 }
 
 .messages .msg-row.mine {
-  align-self: flex-end;
   align-items: flex-end;
 }
 
 .messages .bubble {
   position: relative;
   display: block;
+  align-self: flex-start;
   width: fit-content;
-  max-width: 100%;
+  max-width: min(78%, 570px);
+  min-width: 0;
   height: auto;
-  min-height: 0;
   max-height: 280px;
-  flex: 0 0 auto;
-  padding: 11px 14px;
+  padding: 8px 12px;
   border-radius: 15px 15px 15px 5px;
   background: color-mix(
     in srgb,
@@ -162,9 +160,8 @@
   color: var(--hds-message-text-color, #f4f4fb);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  overflow-y: auto;
   overflow-x: hidden;
-  overscroll-behavior: contain;
+  overflow-y: auto;
   box-sizing: border-box;
 }
 
@@ -190,6 +187,7 @@
 }
 
 .messages .mine .bubble {
+  align-self: flex-end;
   background: color-mix(
     in srgb,
     var(--hds-message-color, #8b5cf6) 82%,
@@ -202,7 +200,6 @@
 .messages .mine .bubble::before {
   background-image: var(--hds-message-border, none);
 }
-
 
 
 .bubble-settings-section {
@@ -726,11 +723,7 @@ async function loadBubbleSettings() {
 
   bubbleSettings = {
     ...DEFAULT_BUBBLE_SETTINGS,
-    ...(data || {}),
-    incoming_text_color:
-      data?.incoming_text_color || DEFAULT_BUBBLE_SETTINGS.incoming_text_color,
-    outgoing_text_color:
-      data?.outgoing_text_color || DEFAULT_BUBBLE_SETTINGS.outgoing_text_color
+    ...(data || {})
   };
 
   applyBubbleSettings();
