@@ -833,10 +833,17 @@ $("resetBubbleSettings").addEventListener("click", async () => {
 
     if (error) throw error;
 
-    bubbleSettings = { ...DEFAULT_BUBBLE_SETTINGS };
+bubbleSettings = { ...DEFAULT_BUBBLE_SETTINGS };
 
-    applyBubbleSettings();
-    showBubbleSettingsInForm();
+applyBubbleSettings();
+
+applyBubbleTextColors(
+  bubbleSettings.incoming_text_color,
+  bubbleSettings.outgoing_text_color
+);
+
+showBubbleSettingsInForm();
+await loadMessages(true);
 
     $("incomingBubbleFile").value = "";
     $("outgoingBubbleFile").value = "";
@@ -851,21 +858,105 @@ $("resetBubbleSettings").addEventListener("click", async () => {
 });
 
 
-  async function loadMessages(quiet=false){
-    if(!currentUser||!selectedUser)return;
-    const other=selectedUser.id;
-    const {data,error}=await db.from("messages").select("id,sender_id,receiver_id,content,created_at")
-      .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${other}),and(sender_id.eq.${other},receiver_id.eq.${currentUser.id})`)
-      .order("created_at",{ascending:true}).limit(200);
-    if(error){if(!quiet)$("messages").innerHTML='<div class="muted small">Could not load messages. Check the messages table policies.</div>';return;}
-    const box=$("messages"), wasNearBottom=box.scrollHeight-box.scrollTop-box.clientHeight<100;
-    box.innerHTML=(data||[]).map(message=>{
-      const mine=message.sender_id===currentUser.id;
-      return `<div class="msg-row ${mine?"mine":""}"><div class="bubble"><span class="bubble-text">${escapeHtml(message.content)}</span></div><div class="msg-time">${mine?"You":" "+escapeHtml(selectedUser.username)} · ${escapeHtml(prettyTime(message.created_at))}</div></div>`;
-    }).join("");
-    if(!data?.length)box.innerHTML='<div class="day-note">This is the beginning of your conversation. Say hi 👋</div>';
-    if(!quiet||wasNearBottom)box.scrollTop=box.scrollHeight;
+  
+async function loadMessages(quiet = false) {
+  if (!currentUser || !selectedUser) return;
+
+  const other = selectedUser.id;
+
+  const { data, error } = await db
+    .from("messages")
+    .select("id,sender_id,receiver_id,content,created_at")
+    .or(
+      `and(sender_id.eq.${currentUser.id},receiver_id.eq.${other}),and(sender_id.eq.${other},receiver_id.eq.${currentUser.id})`
+    )
+    .order("created_at", { ascending: true })
+    .limit(200);
+
+  if (error) {
+    if (!quiet) {
+      $("messages").innerHTML =
+        '<div class="muted small">Could not load messages. Check the messages table policies.</div>';
+    }
+    return;
   }
+
+  const { data: settingsData, error: settingsError } = await db
+    .from("chat_bubble_settings")
+    .select(
+      "user_id,outgoing_color,outgoing_text_color,outgoing_border_path"
+    )
+    .in("user_id", [currentUser.id, other]);
+
+  if (settingsError) {
+    console.error("Could not load sender bubble settings:", settingsError);
+  }
+
+  const settingsByUser = new Map(
+    (settingsData || []).map(settings => [settings.user_id, settings])
+  );
+
+  const box = $("messages");
+  const wasNearBottom =
+    box.scrollHeight - box.scrollTop - box.clientHeight < 100;
+
+  box.innerHTML = (data || []).map(message => {
+    const mine = message.sender_id === currentUser.id;
+    const senderSettings = settingsByUser.get(message.sender_id) || {};
+
+    const validColor = (value, fallback) =>
+      /^#[0-9a-f]{6}$/i.test(value || "") ? value : fallback;
+
+    const bubbleColor = validColor(
+      senderSettings.outgoing_color,
+      mine ? "#8b5cf6" : "#292938"
+    );
+
+    const textColor = validColor(
+      senderSettings.outgoing_text_color,
+      "#f4f4fb"
+    );
+
+    let border = "none";
+
+    if (senderSettings.outgoing_border_path) {
+      const { data: urlData } = db.storage
+        .from("bubble-borders")
+        .getPublicUrl(senderSettings.outgoing_border_path);
+
+      if (urlData?.publicUrl) {
+        border = `url("${urlData.publicUrl}")`;
+      }
+    }
+
+    const style = [
+      `--hds-message-color:${bubbleColor}`,
+      `--hds-message-text-color:${textColor}`,
+      `--hds-message-border:${border}`
+    ].join(";");
+
+    return `
+      <div class="msg-row ${mine ? "mine" : ""}">
+        <div class="bubble" style="${escapeHtml(style)}">
+          <span class="bubble-text">${escapeHtml(message.content)}</span>
+        </div>
+        <div class="msg-time">
+          ${mine ? "You" : " " + escapeHtml(selectedUser.username)}
+          · ${escapeHtml(prettyTime(message.created_at))}
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  if (!data?.length) {
+    box.innerHTML =
+      '<div class="day-note">This is the beginning of your conversation. Say hi 👋</div>';
+  }
+
+  if (!quiet || wasNearBottom) {
+    box.scrollTop = box.scrollHeight;
+  }
+}
 
   $("composer").addEventListener("submit",async event=>{
     event.preventDefault();
