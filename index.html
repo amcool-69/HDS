@@ -112,42 +112,35 @@
     
 /* HDS Custom Chat Bubbles */
 .bubble {
-  background: var(--hds-incoming-color, #292938);
+  position: relative;
+  background: color-mix(in srgb, var(--hds-incoming-color, #292938) 82%, transparent);
   border: 5px solid transparent;
-  border-image-source: var(--hds-incoming-border, none);
-  border-image-slice: 30 fill;
-  border-image-width: 5px;
-  border-image-repeat: stretch;
   border-radius: 15px;
+  overflow: hidden;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
   box-sizing: border-box;
 }
 
-.mine .bubble {
-  background: var(--hds-outgoing-color, #8b5cf6);
-  border: 5px solid transparent;
-  border-image-source: var(--hds-outgoing-border, none);
-  border-image-slice: 30 fill;
-  border-image-width: 5px;
-  border-image-repeat: stretch;
-  border-radius: 15px;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-  box-sizing: border-box;
-}
-.mine .bubble {
-  background: var(--hds-outgoing-color, #8b5cf6);
-  border-image-source: var(--hds-outgoing-border, none);
-  border-image-slice: 30 fill;
-  border-image-width: 12px;
-  border-image-repeat: stretch;
+.bubble::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--hds-incoming-border, none);
+  background-size: 100% 100%;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: 10px;
+  opacity: 0.75;
+  pointer-events: none;
 }
 
 .mine .bubble {
-  background: var(--hds-outgoing-color, #7548d6);
-  border-color: var(--hds-outgoing-color, #8a62e3);
-  border-image-source: var(--hds-outgoing-border, none);
+  background: color-mix(in srgb, var(--hds-outgoing-color, #8b5cf6) 82%, transparent);
+}
+
+.mine .bubble::before {
+  background-image: var(--hds-outgoing-border, none);
 }
 
 .bubble-settings-section {
