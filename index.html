@@ -221,7 +221,18 @@
       <h1 id="authTitle">Welcome to HDS</h1>
       <p id="authDescription">Your conversations, all in one place.</p>
       <form id="authForm">
-        <div id="usernameField" class="hidden"><label for="username">Username</label><input id="username" maxlength="24" autocomplete="username" placeholder="yourname" pattern="[A-Za-z0-9_]{3,24}"></div>
+        <div id="usernameField" class="hidden">
+  <label for="username">Username</label>
+  <input
+    id="username"
+    name="username"
+    maxlength="24"
+    autocomplete="username"
+    placeholder="yourname"
+    pattern="[A-Za-z0-9_]{3,24}"
+    disabled
+  >
+</div>
         <label for="email">Email</label><input id="email" type="email" required autocomplete="email" placeholder="you@example.com">
         <label for="password">Password</label><input id="password" type="password" required minlength="8" autocomplete="current-password" placeholder="At least 8 characters">
         <button id="authSubmit" class="primary wide" type="submit">Log in</button>
