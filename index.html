@@ -109,6 +109,76 @@
   object-fit: cover;
   display: block;
 }
+    
+/* HDS Custom Chat Bubbles */
+.bubble {
+  background: var(--hds-incoming-color, #1b1b2a);
+  border-color: var(--hds-incoming-color, #2b2b3d);
+  border-image-source: var(--hds-incoming-border, none);
+  border-image-slice: 30;
+  border-image-width: 12px;
+  border-image-repeat: stretch;
+}
+
+.mine .bubble {
+  background: var(--hds-outgoing-color, #7548d6);
+  border-color: var(--hds-outgoing-color, #8a62e3);
+  border-image-source: var(--hds-outgoing-border, none);
+}
+
+.bubble-settings-section {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.bubble-settings-section h3 {
+  font-size: 14px;
+  margin: 0 0 8px;
+}
+
+.bubble-color-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.bubble-color-row label {
+  flex: 1;
+  margin: 0;
+}
+
+.bubble-color {
+  width: 48px;
+  height: 38px;
+  padding: 3px;
+  cursor: pointer;
+}
+
+.bubble-file {
+  margin: 8px 0;
+  font-size: 12px;
+}
+
+.bubble-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.bubble-actions button {
+  flex: 1;
+}
+
+.settings-secondary {
+  background: #29293b;
+  color: var(--text);
+  border-radius: 8px;
+  padding: 10px;
+  font-weight: 700;
+}
+
   </style>
 </head>
 <body>
@@ -192,6 +262,54 @@
   </button>
 
   <p id="avatarStatus" class="settings-description" role="status"></p>
+  
+<div class="bubble-settings-section">
+  <h3>Chat appearance</h3>
+  <p class="settings-description">
+    Customize the message bubbles you see in your chats.
+  </p>
+
+  <div class="bubble-color-row">
+    <label for="incomingBubbleColor">Incoming colour</label>
+    <input id="incomingBubbleColor" class="bubble-color"
+      type="color" value="#292938">
+  </div>
+
+  <div class="bubble-color-row">
+    <label for="outgoingBubbleColor">Outgoing colour</label>
+    <input id="outgoingBubbleColor" class="bubble-color"
+      type="color" value="#8b5cf6">
+  </div>
+
+  <h3>PNG borders</h3>
+
+  <label for="incomingBubbleFile">Incoming message border</label>
+  <input id="incomingBubbleFile" class="bubble-file"
+    type="file" accept="image/png,.png">
+
+  <p id="incomingBubbleStatus" class="settings-description">
+    No custom border selected.
+  </p>
+
+  <label for="outgoingBubbleFile">Outgoing message border</label>
+  <input id="outgoingBubbleFile" class="bubble-file"
+    type="file" accept="image/png,.png">
+
+  <p id="outgoingBubbleStatus" class="settings-description">
+    No custom border selected.
+  </p>
+
+  <div class="bubble-actions">
+    <button id="saveBubbleSettings" class="settings-action"
+      type="button">Save changes</button>
+    <button id="resetBubbleSettings" class="settings-secondary"
+      type="button">Reset</button>
+  </div>
+
+  <p id="bubbleSettingsStatus" class="settings-description"
+    role="status" aria-live="polite"></p>
+</div>
+
 </div>
 
     </aside>
@@ -316,7 +434,15 @@ $("myName").textContent = profile.username;
 setAvatar($("myAvatar"), profile.avatar, profile.username);
 $("myVerifiedIcon").classList.toggle("hidden", profile.verified !== true);
 
-    await loadPeople();
+try {
+  await loadBubbleSettings();
+} catch (error) {
+  console.error("Loading bubble settings failed:", error);
+  $("bubbleSettingsStatus").textContent =
+    "Couldn't load saved bubble settings: " + error.message;
+}
+
+await loadPeople();
     if(refreshTimer)clearInterval(refreshTimer);
     refreshTimer=setInterval(async()=>{await loadPeople(true);if(selectedUser)await loadMessages(true);},4000);
   }
@@ -379,6 +505,209 @@ $("chatSub").textContent = "Direct message";
     $("messageInput").focus();
   }
   $("backButton").addEventListener("click",()=>app.classList.remove("chat-open"));
+  
+const DEFAULT_BUBBLE_SETTINGS = {
+  incoming_color: "#292938",
+  outgoing_color: "#8b5cf6",
+  incoming_border_path: null,
+  outgoing_border_path: null
+};
+
+let bubbleSettings = { ...DEFAULT_BUBBLE_SETTINGS };
+
+function applyBubbleSettings() {
+  const root = document.documentElement;
+
+  root.style.setProperty(
+    "--hds-incoming-color",
+    bubbleSettings.incoming_color
+  );
+
+  root.style.setProperty(
+    "--hds-outgoing-color",
+    bubbleSettings.outgoing_color
+  );
+
+  const incomingPath = bubbleSettings.incoming_border_path;
+  const outgoingPath = bubbleSettings.outgoing_border_path;
+
+  const incomingUrl = incomingPath
+    ? db.storage.from("bubble-borders").getPublicUrl(incomingPath).data.publicUrl
+    : "none";
+
+  const outgoingUrl = outgoingPath
+    ? db.storage.from("bubble-borders").getPublicUrl(outgoingPath).data.publicUrl
+    : "none";
+
+  root.style.setProperty(
+    "--hds-incoming-border",
+    incomingUrl === "none" ? "none" : `url("${incomingUrl}")`
+  );
+
+  root.style.setProperty(
+    "--hds-outgoing-border",
+    outgoingUrl === "none" ? "none" : `url("${outgoingUrl}")`
+  );
+}
+
+function showBubbleSettingsInForm() {
+  $("incomingBubbleColor").value = bubbleSettings.incoming_color;
+  $("outgoingBubbleColor").value = bubbleSettings.outgoing_color;
+
+  $("incomingBubbleStatus").textContent =
+    bubbleSettings.incoming_border_path
+      ? "A saved PNG border is selected."
+      : "No custom border selected.";
+
+  $("outgoingBubbleStatus").textContent =
+    bubbleSettings.outgoing_border_path
+      ? "A saved PNG border is selected."
+      : "No custom border selected.";
+}
+
+async function loadBubbleSettings() {
+  const { data, error } = await db
+    .from("chat_bubble_settings")
+    .select("user_id,incoming_color,outgoing_color,incoming_border_path,outgoing_border_path")
+    .eq("user_id", currentUser.id)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  bubbleSettings = {
+    ...DEFAULT_BUBBLE_SETTINGS,
+    ...(data || {})
+  };
+
+  applyBubbleSettings();
+  showBubbleSettingsInForm();
+}
+
+async function uploadBubbleBorder(file, type) {
+  if (!file) return null;
+
+  if (file.type !== "image/png" || !file.name.toLowerCase().endsWith(".png")) {
+    throw new Error("Choose a PNG image.");
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    throw new Error("PNG files must be 5 MB or smaller.");
+  }
+
+  const path = `${currentUser.id}/${crypto.randomUUID()}.png`;
+
+  const { error } = await db.storage
+    .from("bubble-borders")
+    .upload(path, file, {
+      contentType: "image/png",
+      upsert: false
+    });
+
+  if (error) throw error;
+
+  return path;
+}
+
+$("saveBubbleSettings").addEventListener("click", async () => {
+  if (!currentUser) return;
+
+  const button = $("saveBubbleSettings");
+  const status = $("bubbleSettingsStatus");
+
+  button.disabled = true;
+  status.textContent = "Saving...";
+
+  try {
+    const incomingFile = $("incomingBubbleFile").files?.[0];
+    const outgoingFile = $("outgoingBubbleFile").files?.[0];
+
+    const incomingColor = $("incomingBubbleColor").value;
+    const outgoingColor = $("outgoingBubbleColor").value;
+
+    const nextSettings = {
+      user_id: currentUser.id,
+      incoming_color: incomingColor,
+      outgoing_color: outgoingColor,
+      incoming_border_path: bubbleSettings.incoming_border_path,
+      outgoing_border_path: bubbleSettings.outgoing_border_path,
+      updated_at: new Date().toISOString()
+    };
+
+    if (incomingFile) {
+      nextSettings.incoming_border_path =
+        await uploadBubbleBorder(incomingFile, "incoming");
+    }
+
+    if (outgoingFile) {
+      nextSettings.outgoing_border_path =
+        await uploadBubbleBorder(outgoingFile, "outgoing");
+    }
+
+    const { error } = await db
+      .from("chat_bubble_settings")
+      .upsert(nextSettings, { onConflict: "user_id" });
+
+    if (error) throw error;
+
+    bubbleSettings = {
+      incoming_color: nextSettings.incoming_color,
+      outgoing_color: nextSettings.outgoing_color,
+      incoming_border_path: nextSettings.incoming_border_path,
+      outgoing_border_path: nextSettings.outgoing_border_path
+    };
+
+    applyBubbleSettings();
+    showBubbleSettingsInForm();
+
+    $("incomingBubbleFile").value = "";
+    $("outgoingBubbleFile").value = "";
+
+    status.textContent = "Bubble settings saved!";
+  } catch (error) {
+    console.error("Saving bubble settings failed:", error);
+    status.textContent = error.message || "Couldn't save bubble settings.";
+  } finally {
+    button.disabled = false;
+  }
+});
+
+$("resetBubbleSettings").addEventListener("click", async () => {
+  if (!currentUser) return;
+
+  const button = $("resetBubbleSettings");
+  const status = $("bubbleSettingsStatus");
+
+  button.disabled = true;
+  status.textContent = "Resetting...";
+
+  try {
+    const { error } = await db
+      .from("chat_bubble_settings")
+      .upsert({
+        user_id: currentUser.id,
+        ...DEFAULT_BUBBLE_SETTINGS,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "user_id" });
+
+    if (error) throw error;
+
+    bubbleSettings = { ...DEFAULT_BUBBLE_SETTINGS };
+
+    applyBubbleSettings();
+    showBubbleSettingsInForm();
+
+    $("incomingBubbleFile").value = "";
+    $("outgoingBubbleFile").value = "";
+
+    status.textContent = "Restored default bubble settings.";
+  } catch (error) {
+    console.error("Resetting bubble settings failed:", error);
+    status.textContent = error.message || "Couldn't reset settings.";
+  } finally {
+    button.disabled = false;
+  }
+});
+
 
   async function loadMessages(quiet=false){
     if(!currentUser||!selectedUser)return;
