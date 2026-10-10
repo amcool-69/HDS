@@ -594,10 +594,12 @@ $("chatSub").textContent = "Direct message";
 const DEFAULT_BUBBLE_SETTINGS = {
   incoming_color: "#292938",
   outgoing_color: "#8b5cf6",
+  incoming_text_color: "#f4f4fb",
+  outgoing_text_color: "#f4f4fb",
   incoming_border_path: null,
   outgoing_border_path: null
 };
-
+  
 let bubbleSettings = { ...DEFAULT_BUBBLE_SETTINGS };
 
 function applyBubbleSettings() {
