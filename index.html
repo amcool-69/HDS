@@ -721,24 +721,23 @@ async function loadBubbleSettings() {
 
   if (error) throw error;
 
-  bubbleSettings = {
-    ...DEFAULT_BUBBLE_SETTINGS,
-    ...(data || {}),
-    incoming_text_color: data?.incoming_text_color || "#f4f4fb",
-    outgoing_text_color: data?.outgoing_text_color || "#f4f4fb"
-  };
 
-  applyBubbleSettings();
+bubbleSettings = {
+  ...DEFAULT_BUBBLE_SETTINGS,
+  ...nextSettings
+};
 
-  if (typeof applyBubbleTextColors === "function") {
-    applyBubbleTextColors(
-      bubbleSettings.incoming_text_color,
-      bubbleSettings.outgoing_text_color
-    );
-  }
+applyBubbleSettings();
 
-  showBubbleSettingsInForm();
-}
+applyBubbleTextColors(
+  bubbleSettings.incoming_text_color,
+  bubbleSettings.outgoing_text_color
+);
+
+showBubbleSettingsInForm();
+
+await loadMessages(true);
+
 
 async function uploadBubbleBorder(file, direction) {
   if (!file || file.type !== "image/png") {
@@ -881,6 +880,7 @@ await loadMessages(true);
 
 
   
+
 async function loadMessages(quiet = false) {
   if (!currentUser || !selectedUser) return;
 
@@ -903,48 +903,37 @@ async function loadMessages(quiet = false) {
     return;
   }
 
-  const { data: settingsData, error: settingsError } = await db
-    .from("chat_bubble_settings")
-    .select(
-      "user_id,outgoing_color,outgoing_text_color,outgoing_border_path"
-    )
-    .in("user_id", [currentUser.id, other]);
-
-  if (settingsError) {
-    console.error("Could not load sender bubble settings:", settingsError);
-  }
-
-  const settingsByUser = new Map(
-    (settingsData || []).map(settings => [settings.user_id, settings])
-  );
-
   const box = $("messages");
   const wasNearBottom =
     box.scrollHeight - box.scrollTop - box.clientHeight < 100;
 
+  const validColor = (value, fallback) =>
+    /^#[0-9a-f]{6}$/i.test(value || "") ? value : fallback;
+
   box.innerHTML = (data || []).map(message => {
     const mine = message.sender_id === currentUser.id;
-    const senderSettings = settingsByUser.get(message.sender_id) || {};
 
-    const validColor = (value, fallback) =>
-      /^#[0-9a-f]{6}$/i.test(value || "") ? value : fallback;
+    // Your settings control the bubbles YOU see.
+    // Your outgoing settings style your messages.
+    // Your incoming settings style other people's messages.
+    const bubbleColor = mine
+      ? validColor(bubbleSettings.outgoing_color, "#8b5cf6")
+      : validColor(bubbleSettings.incoming_color, "#292938");
 
-    const bubbleColor = validColor(
-      senderSettings.outgoing_color,
-      mine ? "#8b5cf6" : "#292938"
-    );
+    const textColor = mine
+      ? validColor(bubbleSettings.outgoing_text_color, "#f4f4fb")
+      : validColor(bubbleSettings.incoming_text_color, "#f4f4fb");
 
-    const textColor = validColor(
-      senderSettings.outgoing_text_color,
-      "#f4f4fb"
-    );
+    const borderPath = mine
+      ? bubbleSettings.outgoing_border_path
+      : bubbleSettings.incoming_border_path;
 
     let border = "none";
 
-    if (senderSettings.outgoing_border_path) {
+    if (borderPath) {
       const { data: urlData } = db.storage
         .from("bubble-borders")
-        .getPublicUrl(senderSettings.outgoing_border_path);
+        .getPublicUrl(borderPath);
 
       if (urlData?.publicUrl) {
         border = `url("${urlData.publicUrl}")`;
@@ -979,6 +968,7 @@ async function loadMessages(quiet = false) {
     box.scrollTop = box.scrollHeight;
   }
 }
+
 
   $("composer").addEventListener("submit",async event=>{
     event.preventDefault();
