@@ -148,7 +148,7 @@
   position: absolute;
   inset: 0;
   z-index: 0;
-  background-image: var(--hds-incoming-border, none);
+  background-image: var(--hds-message-border, none);
   background-size: 100% 100%;
   background-position: center;
   background-repeat: no-repeat;
@@ -157,25 +157,31 @@
 }
 
 
+.bubble {
+  position: relative;
+  background: color-mix(in srgb, var(--hds-message-color, #292938) 82%, transparent);
+  color: var(--hds-message-text-color, #f4f4fb);
+  border: 3px solid transparent;
+  border-radius: 12px;
+  padding: 8px 10px;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  box-sizing: border-box;
+}
+
 .bubble-text {
   position: relative;
   z-index: 1;
-  color: var(--hds-incoming-text-color, #f4f4fb);
+  color: var(--hds-message-text-color, #f4f4fb);
 }
-
-.mine .bubble-text {
-  color: var(--hds-outgoing-text-color, #f4f4fb);
-}
-
-
 
 .mine .bubble {
-  background: color-mix(in srgb, var(--hds-outgoing-color, #8b5cf6) 82%, transparent);
-  color: var(--text);
+  background: color-mix(in srgb, var(--hds-message-color, #8b5cf6) 82%, transparent);
+  color: var(--hds-message-text-color, #f4f4fb);
 }
-
 .mine .bubble::before {
-  background-image: var(--hds-outgoing-border, none);
+  background-image: var(--hds-message-border, none);
 }
 
 
