@@ -407,8 +407,17 @@ $("chatSub").textContent = "Direct message";
     finally{button.disabled=false;input.focus();}
   });
 
-  $("signOut").addEventListener("click",async()=>{
-    $("openSettings").addEventListener("click", () => {
+
+$("signOut").addEventListener("click", async () => {
+  await db.auth.signOut();
+  currentUser = null;
+  myProfile = null;
+  selectedUser = null;
+  showAuth();
+  setAuthMode(false);
+});
+
+$("openSettings").addEventListener("click", () => {
   $("settingsPanel").classList.toggle("hidden");
 });
 
@@ -419,6 +428,7 @@ $("closeSettings").addEventListener("click", () => {
 $("changeAvatar").addEventListener("click", () => {
   $("avatarFile").click();
 });
+
 
 $("avatarFile").addEventListener("change", async event => {
   const file = event.target.files?.[0];
@@ -491,9 +501,7 @@ $("avatarFile").addEventListener("change", async event => {
     event.target.value = "";
   }
 });
-    stopRefresh();const {error}=await db.auth.signOut();if(error)alert(error.message);
-    currentUser=null;myProfile=null;selectedUser=null;showAuth();setAuthMode(false);
-  });
+
   setAuthMode(false);
 boot();
 })();
