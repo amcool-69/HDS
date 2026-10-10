@@ -598,10 +598,11 @@ function showBubbleSettingsInForm() {
       : "No custom border selected.";
 }
 
+
 async function loadBubbleSettings() {
   const { data, error } = await db
     .from("chat_bubble_settings")
-    .select("user_id,incoming_color,outgoing_color,incoming_border_path,outgoing_border_path")
+    .select("user_id,incoming_color,outgoing_color,incoming_border_path,outgoing_border_path,incoming_text_color,outgoing_text_color")
     .eq("user_id", currentUser.id)
     .maybeSingle();
 
@@ -609,32 +610,21 @@ async function loadBubbleSettings() {
 
   bubbleSettings = {
     ...DEFAULT_BUBBLE_SETTINGS,
-    ...(data || {})
+    ...(data || {}),
+    incoming_text_color: data?.incoming_text_color || "#f4f4fb",
+    outgoing_text_color: data?.outgoing_text_color || "#f4f4fb"
   };
 
   applyBubbleSettings();
+
+  applyBubbleTextColors(
+    bubbleSettings.incoming_text_color,
+    bubbleSettings.outgoing_text_color
+  );
+
   showBubbleSettingsInForm();
 }
 
-async function uploadBubbleBorder(file, type) {
-  if (!file) return null;
-
-  if (file.type !== "image/png" || !file.name.toLowerCase().endsWith(".png")) {
-    throw new Error("Choose a PNG image.");
-  }
-
-  if (file.size > 5 * 1024 * 1024) {
-    throw new Error("PNG files must be 5 MB or smaller.");
-  }
-
-  const path = `${currentUser.id}/${crypto.randomUUID()}.png`;
-
-  const { error } = await db.storage
-    .from("bubble-borders")
-    .upload(path, file, {
-      contentType: "image/png",
-      upsert: false
-    });
 
   if (error) throw error;
 
