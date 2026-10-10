@@ -143,10 +143,17 @@
   pointer-events: none;
 }
 
+
 .bubble-text {
   position: relative;
   z-index: 1;
+  color: var(--hds-incoming-text-color, #f4f4fb);
 }
+
+.mine .bubble-text {
+  color: var(--hds-outgoing-text-color, #f4f4fb);
+}
+
 
 
 .mine .bubble {
@@ -608,6 +615,42 @@ function applyBubbleSettings() {
     outgoingUrl === "none" ? "none" : `url("${outgoingUrl}")`
   );
 }
+  
+function applyBubbleTextColors(incoming, outgoing) {
+  const incomingColor = incoming || "#f4f4fb";
+  const outgoingColor = outgoing || "#f4f4fb";
+
+  document.documentElement.style.setProperty(
+    "--hds-incoming-text-color", incomingColor
+  );
+
+  document.documentElement.style.setProperty(
+    "--hds-outgoing-text-color", outgoingColor
+  );
+
+  if ($("incomingTextColor")) {
+    $("incomingTextColor").value = incomingColor;
+  }
+
+  if ($("outgoingTextColor")) {
+    $("outgoingTextColor").value = outgoingColor;
+  }
+}
+
+$("incomingTextColor").addEventListener("input", () => {
+  applyBubbleTextColors(
+    $("incomingTextColor").value,
+    $("outgoingTextColor").value
+  );
+});
+
+$("outgoingTextColor").addEventListener("input", () => {
+  applyBubbleTextColors(
+    $("incomingTextColor").value,
+    $("outgoingTextColor").value
+  );
+});
+
 
 function showBubbleSettingsInForm() {
   $("incomingBubbleColor").value = bubbleSettings.incoming_color;
@@ -699,14 +742,17 @@ $("saveBubbleSettings").addEventListener("click", async () => {
     const incomingColor = $("incomingBubbleColor").value;
     const outgoingColor = $("outgoingBubbleColor").value;
 
-    const nextSettings = {
-      user_id: currentUser.id,
-      incoming_color: incomingColor,
-      outgoing_color: outgoingColor,
-      incoming_border_path: bubbleSettings.incoming_border_path,
-      outgoing_border_path: bubbleSettings.outgoing_border_path,
-      updated_at: new Date().toISOString()
-    };
+    
+const nextSettings = {
+  user_id: currentUser.id,
+  incoming_color: incomingColor,
+  outgoing_color: outgoingColor,
+  incoming_text_color: $("incomingTextColor").value,
+  outgoing_text_color: $("outgoingTextColor").value,
+  incoming_border_path: bubbleSettings.incoming_border_path,
+  outgoing_border_path: bubbleSettings.outgoing_border_path,
+  updated_at: new Date().toISOString()
+};
 
     if (incomingFile) {
       nextSettings.incoming_border_path =
