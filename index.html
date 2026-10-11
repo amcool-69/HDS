@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -486,6 +485,10 @@ const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_9rioOwsc_HZpa42rSLiuYA_sZGfYvrk
   const authScreen = $("authScreen"), app = $("app");
   let db = null, currentUser = null, myProfile = null, selectedUser = null;
   let signupMode = false, peopleCache = [], refreshTimer = null, searchTimer = null;
+
+let lastRenderedMessagesKey = null;
+let lastMessagesRenderedAt = 0;
+let lastRenderedImagesFailed = false;
   const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
   const initials = name => (name || "?").trim().slice(0,1).toUpperCase();
   const setNotice = (message, error=false) => { const el=$("authNotice"); el.textContent=message; el.classList.remove("hidden","error"); if(error)el.classList.add("error"); };
@@ -940,8 +943,34 @@ async function loadMessages(quiet = false) {
     return;
   }
 
-  const messages = data || [];
-  const attachmentIds = [
+const messages = data || [];
+
+// Identify whether the conversation's messages actually changed.
+const messagesKey = JSON.stringify([
+  currentUser.id,
+  other,
+  messages.map(m => [
+    m.id,
+    m.sender_id,
+    m.content,
+    m.created_at
+  ])
+]);
+
+// Keep existing message elements and images when nothing changed.
+// Renew signed image URLs after 50 minutes.
+const imageUrlRefreshDue =
+  Date.now() - lastMessagesRenderedAt >= 50 * 60 * 1000;
+
+if (
+  messagesKey === lastRenderedMessagesKey &&
+  !lastRenderedImagesFailed &&
+  !imageUrlRefreshDue
+) {
+  return;
+}
+
+const attachmentIds = [
     ...new Set(
       messages
         .map(m => m.content.match(/^hds-image:([0-9a-f-]{36})$/i)?.[1])
@@ -950,6 +979,7 @@ async function loadMessages(quiet = false) {
   ];
 
   const attachmentsById = {};
+let imageResolutionFailed = false;
 
   if (attachmentIds.length) {
     const { data: attachments, error: attachmentError } = await db
@@ -958,7 +988,8 @@ async function loadMessages(quiet = false) {
       .in("id", attachmentIds);
 
     if (attachmentError) {
-      console.error("Loading image attachments failed:", attachmentError);
+  imageResolutionFailed = true;
+  console.error("Loading image attachments failed:", attachmentError);
     } else {
       for (const attachment of attachments || []) {
         const { data: signedData, error: signedError } = await db.storage
@@ -966,10 +997,13 @@ async function loadMessages(quiet = false) {
           .createSignedUrl(attachment.storage_path, 3600);
 
         if (!signedError && signedData?.signedUrl) {
-          attachmentsById[attachment.id] = {
-            url: signedData.signedUrl,
-            name: attachment.file_name
-          };
+  attachmentsById[attachment.id] = {
+    url: signedData.signedUrl,
+    name: attachment.file_name
+  };
+} else {
+  imageResolutionFailed = true;
+}
         }
       }
     }
@@ -988,8 +1022,11 @@ async function loadMessages(quiet = false) {
     let contentHtml;
 
     if (imageId) {
-      const attachment = attachmentsById[imageId];
+const attachment = attachmentsById[imageId];
 
+if (!attachment) {
+  imageResolutionFailed = true;
+}
       contentHtml = attachment
         ? `<img class="hds-chat-image"
                 src="${escapeHtml(attachment.url)}"
@@ -1013,6 +1050,10 @@ async function loadMessages(quiet = false) {
     box.innerHTML =
       '<div class="day-note">This is the beginning of your conversation. Say hi 👋</div>';
   }
+
+  lastRenderedMessagesKey = messagesKey;
+lastMessagesRenderedAt = Date.now();
+lastRenderedImagesFailed = imageResolutionFailed;
 
   if (!quiet || wasNearBottom) {
     box.scrollTop = box.scrollHeight;
