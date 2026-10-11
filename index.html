@@ -948,6 +948,7 @@ $("resetBubbleSettings").addEventListener("click", async () => {
 
 
 
+
 async function loadMessages(quiet = false) {
   if (!currentUser || !selectedUser) return;
 
@@ -970,34 +971,31 @@ async function loadMessages(quiet = false) {
     return;
   }
 
-const messages = data || [];
+  const messages = data || [];
 
-// Identify whether the conversation's messages actually changed.
-const messagesKey = JSON.stringify([
-  currentUser.id,
-  other,
-  messages.map(m => [
-    m.id,
-    m.sender_id,
-    m.content,
-    m.created_at
-  ])
-]);
+  const messagesKey = JSON.stringify([
+    currentUser.id,
+    other,
+    messages.map(m => [
+      m.id,
+      m.sender_id,
+      m.content,
+      m.created_at
+    ])
+  ]);
 
-// Keep existing message elements and images when nothing changed.
-// Renew signed image URLs after 50 minutes.
-const imageUrlRefreshDue =
-  Date.now() - lastMessagesRenderedAt >= 50 * 60 * 1000;
+  const imageUrlRefreshDue =
+    Date.now() - lastMessagesRenderedAt >= 50 * 60 * 1000;
 
-if (
-  messagesKey === lastRenderedMessagesKey &&
-  !lastRenderedImagesFailed &&
-  !imageUrlRefreshDue
-) {
-  return;
-}
+  if (
+    messagesKey === lastRenderedMessagesKey &&
+    !lastRenderedImagesFailed &&
+    !imageUrlRefreshDue
+  ) {
+    return;
+  }
 
-const attachmentIds = [
+  const attachmentIds = [
     ...new Set(
       messages
         .map(m => m.content.match(/^hds-image:([0-9a-f-]{36})$/i)?.[1])
@@ -1006,7 +1004,7 @@ const attachmentIds = [
   ];
 
   const attachmentsById = {};
-let imageResolutionFailed = false;
+  let imageResolutionFailed = false;
 
   if (attachmentIds.length) {
     const { data: attachments, error: attachmentError } = await db
@@ -1014,31 +1012,30 @@ let imageResolutionFailed = false;
       .select("id,storage_path,file_name,mime_type")
       .in("id", attachmentIds);
 
-
-if (attachmentError) {
-  imageResolutionFailed = true;
-  console.error(
-    "Loading image attachments failed:",
-    attachmentError
-  );
-} else {
-  for (const attachment of attachments || []) {
-    const { data: signedData, error: signedError } =
-      await db.storage
-        .from("hds-attachments")
-        .createSignedUrl(attachment.storage_path, 3600);
-
-    if (!signedError && signedData?.signedUrl) {
-      attachmentsById[attachment.id] = {
-        url: signedData.signedUrl,
-        name: attachment.file_name
-      };
-    } else {
+    if (attachmentError) {
       imageResolutionFailed = true;
+      console.error(
+        "Loading image attachments failed:",
+        attachmentError
+      );
+    } else {
+      for (const attachment of attachments || []) {
+        const { data: signedData, error: signedError } =
+          await db.storage
+            .from("hds-attachments")
+            .createSignedUrl(attachment.storage_path, 3600);
+
+        if (!signedError && signedData?.signedUrl) {
+          attachmentsById[attachment.id] = {
+            url: signedData.signedUrl,
+            name: attachment.file_name
+          };
+        } else {
+          imageResolutionFailed = true;
+        }
+      }
     }
   }
-}
-
 
   const box = $("messages");
   const wasNearBottom =
@@ -1053,11 +1050,12 @@ if (attachmentError) {
     let contentHtml;
 
     if (imageId) {
-const attachment = attachmentsById[imageId];
+      const attachment = attachmentsById[imageId];
 
-if (!attachment) {
-  imageResolutionFailed = true;
-}
+      if (!attachment) {
+        imageResolutionFailed = true;
+      }
+
       contentHtml = attachment
         ? `<img class="hds-chat-image"
                 src="${escapeHtml(attachment.url)}"
@@ -1083,8 +1081,8 @@ if (!attachment) {
   }
 
   lastRenderedMessagesKey = messagesKey;
-lastMessagesRenderedAt = Date.now();
-lastRenderedImagesFailed = imageResolutionFailed;
+  lastMessagesRenderedAt = Date.now();
+  lastRenderedImagesFailed = imageResolutionFailed;
 
   if (!quiet || wasNearBottom) {
     box.scrollTop = box.scrollHeight;
