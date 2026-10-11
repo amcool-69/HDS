@@ -1035,6 +1035,124 @@ $("avatarFile").addEventListener("change", async event => {
   setAuthMode(false);
 boot();
 })();
+
+  
+/* HDS clipboard image upload */
+
+const HDS_IMAGE_BUCKET = "hds-attachments";
+const HDS_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+async function hdsUploadPastedImage(file, receiverId) {
+  const allowedTypes = [
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "image/gif"
+  ];
+
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error("Please paste a PNG, JPEG, WebP, or GIF image.");
+  }
+
+  if (file.size > HDS_IMAGE_MAX_BYTES) {
+    throw new Error("Images must be 5 MB or smaller.");
+  }
+
+  const { data: authData, error: authError } =
+    await supabase.auth.getUser();
+
+  if (authError || !authData.user) {
+    throw new Error("Please sign in first.");
+  }
+
+  const senderId = authData.user.id;
+  const extension = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+    "image/gif": "gif"
+  }[file.type];
+
+  const fileName = `pasted-${crypto.randomUUID()}.${extension}`;
+  const storagePath = `${senderId}/${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(HDS_IMAGE_BUCKET)
+    .upload(storagePath, file, {
+      contentType: file.type,
+      upsert: false
+    });
+
+  if (uploadError) throw uploadError;
+
+  const { data, error: insertError } = await supabase
+    .from("file_attachments")
+    .insert({
+      sender_id: senderId,
+      receiver_id: receiverId,
+      storage_path: storagePath,
+      file_name: fileName,
+      mime_type: file.type,
+      size_bytes: file.size
+    })
+    .select()
+    .single();
+
+  if (insertError) {
+    await supabase.storage
+      .from(HDS_IMAGE_BUCKET)
+      .remove([storagePath]);
+
+    throw insertError;
+  }
+
+  return data;
+}
+
+function hdsEnableImagePaste(inputElement, getReceiverId, onUploaded) {
+  if (!inputElement) {
+    console.error("HDS: message input not found.");
+    return;
+  }
+
+  inputElement.addEventListener("paste", async (event) => {
+    const items = Array.from(event.clipboardData?.items || []);
+    const imageItem = items.find(item =>
+      item.kind === "file" && item.type.startsWith("image/")
+    );
+
+    // Normal text pasting continues to work.
+    if (!imageItem) return;
+
+    event.preventDefault();
+
+    const file = imageItem.getAsFile();
+    if (!file) return;
+
+    try {
+      const receiverId = getReceiverId();
+
+      if (!receiverId) {
+        throw new Error("Open a conversation first.");
+      }
+
+      inputElement.setAttribute("aria-busy", "true");
+
+      const attachment = await hdsUploadPastedImage(file, receiverId);
+
+      // Connect this callback to your existing chat rendering.
+      await onUploaded(attachment, file);
+
+      console.log("HDS image attachment uploaded:", attachment.id);
+    } catch (error) {
+      console.error("HDS image paste failed:", error);
+      alert(error.message || "Image upload failed.");
+    } finally {
+      inputElement.removeAttribute("aria-busy");
+    }
+  });
+}
+
 </script>
 </body>
 </html>
