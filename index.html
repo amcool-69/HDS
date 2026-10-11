@@ -293,6 +293,15 @@ body {
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+    .hds-chat-image {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: min(100%, 360px);
+  max-height: 320px;
+  object-fit: contain;
+  border-radius: 8px;
+}
 
 
   </style>
@@ -908,21 +917,108 @@ $("resetBubbleSettings").addEventListener("click", async () => {
 });
 
 
-  async function loadMessages(quiet=false){
-    if(!currentUser||!selectedUser)return;
-    const other=selectedUser.id;
-    const {data,error}=await db.from("messages").select("id,sender_id,receiver_id,content,created_at")
-      .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${other}),and(sender_id.eq.${other},receiver_id.eq.${currentUser.id})`)
-      .order("created_at",{ascending:true}).limit(200);
-    if(error){if(!quiet)$("messages").innerHTML='<div class="muted small">Could not load messages. Check the messages table policies.</div>';return;}
-    const box=$("messages"), wasNearBottom=box.scrollHeight-box.scrollTop-box.clientHeight<100;
-    box.innerHTML=(data||[]).map(message=>{
-      const mine=message.sender_id===currentUser.id;
-      return `<div class="msg-row ${mine?"mine":""}"><div class="bubble"><span class="bubble-text">${escapeHtml(message.content)}</span></div><div class="msg-time">${mine?"You":" "+escapeHtml(selectedUser.username)} · ${escapeHtml(prettyTime(message.created_at))}</div></div>`;
-    }).join("");
-    if(!data?.length)box.innerHTML='<div class="day-note">This is the beginning of your conversation. Say hi 👋</div>';
-    if(!quiet||wasNearBottom)box.scrollTop=box.scrollHeight;
+
+async function loadMessages(quiet = false) {
+  if (!currentUser || !selectedUser) return;
+
+  const other = selectedUser.id;
+
+  const { data, error } = await db
+    .from("messages")
+    .select("id,sender_id,receiver_id,content,created_at")
+    .or(
+      `and(sender_id.eq.${currentUser.id},receiver_id.eq.${other}),and(sender_id.eq.${other},receiver_id.eq.${currentUser.id})`
+    )
+    .order("created_at", { ascending: true })
+    .limit(200);
+
+  if (error) {
+    if (!quiet) {
+      $("messages").innerHTML =
+        '<div class="muted small">Could not load messages. Check the messages table policies.</div>';
+    }
+    return;
   }
+
+  const messages = data || [];
+  const attachmentIds = [
+    ...new Set(
+      messages
+        .map(m => m.content.match(/^hds-image:([0-9a-f-]{36})$/i)?.[1])
+        .filter(Boolean)
+    )
+  ];
+
+  const attachmentsById = {};
+
+  if (attachmentIds.length) {
+    const { data: attachments, error: attachmentError } = await db
+      .from("file_attachments")
+      .select("id,storage_path,file_name,mime_type")
+      .in("id", attachmentIds);
+
+    if (attachmentError) {
+      console.error("Loading image attachments failed:", attachmentError);
+    } else {
+      for (const attachment of attachments || []) {
+        const { data: signedData, error: signedError } = await db.storage
+          .from("hds-attachments")
+          .createSignedUrl(attachment.storage_path, 3600);
+
+        if (!signedError && signedData?.signedUrl) {
+          attachmentsById[attachment.id] = {
+            url: signedData.signedUrl,
+            name: attachment.file_name
+          };
+        }
+      }
+    }
+  }
+
+  const box = $("messages");
+  const wasNearBottom =
+    box.scrollHeight - box.scrollTop - box.clientHeight < 100;
+
+  box.innerHTML = messages.map(message => {
+    const mine = message.sender_id === currentUser.id;
+    const imageId = message.content.match(
+      /^hds-image:([0-9a-f-]{36})$/i
+    )?.[1];
+
+    let contentHtml;
+
+    if (imageId) {
+      const attachment = attachmentsById[imageId];
+
+      contentHtml = attachment
+        ? `<img class="hds-chat-image"
+                src="${escapeHtml(attachment.url)}"
+                alt="${escapeHtml(attachment.name)}"
+                loading="lazy">`
+        : '<span class="bubble-text">Image unavailable.</span>';
+    } else {
+      contentHtml =
+        `<span class="bubble-text">${escapeHtml(message.content)}</span>`;
+    }
+
+    return `
+      <div class="msg-row ${mine ? "mine" : ""}">
+        <div class="bubble">${contentHtml}</div>
+        <div class="msg-time">${mine ? "You" : escapeHtml(selectedUser.username)} · ${escapeHtml(prettyTime(message.created_at))}</div>
+      </div>
+    `;
+  }).join("");
+
+  if (!messages.length) {
+    box.innerHTML =
+      '<div class="day-note">This is the beginning of your conversation. Say hi 👋</div>';
+  }
+
+  if (!quiet || wasNearBottom) {
+    box.scrollTop = box.scrollHeight;
+  }
+}
+
 
   $("composer").addEventListener("submit",async event=>{
     event.preventDefault();
@@ -1032,40 +1128,44 @@ $("avatarFile").addEventListener("change", async event => {
   }
 });
 
-  setAuthMode(false);
-boot();
-})();
-
-  
-/* HDS clipboard image upload */
-
-const HDS_IMAGE_BUCKET = "hds-attachments";
 const HDS_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const HDS_IMAGE_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif"
+]);
 
-async function hdsUploadPastedImage(file, receiverId) {
-  const allowedTypes = [
-    "image/png",
-    "image/jpeg",
-    "image/webp",
-    "image/gif"
-  ];
+$("messageInput").addEventListener("paste", async event => {
+  const items = Array.from(event.clipboardData?.items || []);
+  const imageItem = items.find(item =>
+    item.kind === "file" &&
+    HDS_IMAGE_TYPES.has(item.type)
+  );
 
-  if (!allowedTypes.includes(file.type)) {
-    throw new Error("Please paste a PNG, JPEG, WebP, or GIF image.");
+  // Keep ordinary text pasting unchanged.
+  if (!imageItem) return;
+
+  event.preventDefault();
+
+  const file = imageItem.getAsFile();
+  if (!file) return;
+
+  const input = $("messageInput");
+  const sendButton = $("composer").querySelector("button");
+
+  if (!currentUser || !selectedUser) {
+    alert("Open a conversation first.");
+    return;
   }
 
   if (file.size > HDS_IMAGE_MAX_BYTES) {
-    throw new Error("Images must be 5 MB or smaller.");
+    alert("Images must be 5 MB or smaller.");
+    return;
   }
 
-  const { data: authData, error: authError } =
-    await supabase.auth.getUser();
-
-  if (authError || !authData.user) {
-    throw new Error("Please sign in first.");
-  }
-
-  const senderId = authData.user.id;
+  const receiverId = selectedUser.id;
+  const senderId = currentUser.id;
   const extension = {
     "image/png": "png",
     "image/jpeg": "jpg",
@@ -1076,82 +1176,84 @@ async function hdsUploadPastedImage(file, receiverId) {
   const fileName = `pasted-${crypto.randomUUID()}.${extension}`;
   const storagePath = `${senderId}/${fileName}`;
 
-  const { error: uploadError } = await supabase.storage
-    .from(HDS_IMAGE_BUCKET)
-    .upload(storagePath, file, {
-      contentType: file.type,
-      upsert: false
-    });
+  input.disabled = true;
+  sendButton.disabled = true;
+  input.placeholder = "Sending image...";
 
-  if (uploadError) throw uploadError;
+  let uploaded = false;
 
-  const { data, error: insertError } = await supabase
-    .from("file_attachments")
-    .insert({
-      sender_id: senderId,
-      receiver_id: receiverId,
-      storage_path: storagePath,
-      file_name: fileName,
-      mime_type: file.type,
-      size_bytes: file.size
-    })
-    .select()
-    .single();
+  try {
+    const { error: uploadError } = await db.storage
+      .from("hds-attachments")
+      .upload(storagePath, file, {
+        contentType: file.type,
+        upsert: false
+      });
 
-  if (insertError) {
-    await supabase.storage
-      .from(HDS_IMAGE_BUCKET)
-      .remove([storagePath]);
+    if (uploadError) throw uploadError;
+    uploaded = true;
 
-    throw insertError;
-  }
+    const { data: attachment, error: attachmentError } = await db
+      .from("file_attachments")
+      .insert({
+        sender_id: senderId,
+        receiver_id: receiverId,
+        storage_path: storagePath,
+        file_name: fileName,
+        mime_type: file.type,
+        size_bytes: file.size
+      })
+      .select("id")
+      .single();
 
-  return data;
-}
+    if (attachmentError) throw attachmentError;
 
-function hdsEnableImagePaste(inputElement, getReceiverId, onUploaded) {
-  if (!inputElement) {
-    console.error("HDS: message input not found.");
-    return;
-  }
+    const { error: messageError } = await db
+      .from("messages")
+      .insert({
+        sender_id: senderId,
+        receiver_id: receiverId,
+        content: `hds-image:${attachment.id}`
+      });
 
-  inputElement.addEventListener("paste", async (event) => {
-    const items = Array.from(event.clipboardData?.items || []);
-    const imageItem = items.find(item =>
-      item.kind === "file" && item.type.startsWith("image/")
-    );
-
-    // Normal text pasting continues to work.
-    if (!imageItem) return;
-
-    event.preventDefault();
-
-    const file = imageItem.getAsFile();
-    if (!file) return;
-
-    try {
-      const receiverId = getReceiverId();
-
-      if (!receiverId) {
-        throw new Error("Open a conversation first.");
-      }
-
-      inputElement.setAttribute("aria-busy", "true");
-
-      const attachment = await hdsUploadPastedImage(file, receiverId);
-
-      // Connect this callback to your existing chat rendering.
-      await onUploaded(attachment, file);
-
-      console.log("HDS image attachment uploaded:", attachment.id);
-    } catch (error) {
-      console.error("HDS image paste failed:", error);
-      alert(error.message || "Image upload failed.");
-    } finally {
-      inputElement.removeAttribute("aria-busy");
+    if (messageError) {
+      throw new Error(
+        "The image uploaded, but its message could not be sent: " +
+        messageError.message
+      );
     }
-  });
-}
+
+    // Clear any text that was already in the input only after success.
+    input.value = "";
+
+    // Refresh only if the same conversation is still open.
+    if (selectedUser?.id === receiverId) {
+      await loadMessages();
+    }
+  } catch (error) {
+    console.error("HDS image paste failed:", error);
+
+    // Avoid deleting a file after its message was successfully sent.
+    if (uploaded) {
+      console.warn(
+        "An upload may remain in storage if message creation failed.",
+        storagePath
+      );
+    }
+
+    alert(error.message || "Image couldn't be sent.");
+  } finally {
+    input.disabled = false;
+    sendButton.disabled = false;
+    input.placeholder = "Write a message…";
+    input.focus();
+  }
+});
+
+  setAuthMode(false);
+boot();
+})();
+
 
 </script>
 </body>
