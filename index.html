@@ -568,38 +568,65 @@ let lastRenderedImagesFailed = false;
     finally{button.disabled=false;}
   });
 
-  async function enterApp(user){
-    currentUser=user; showApp();
-    $("myName").textContent=user.user_metadata?.username || user.email?.split("@")[0] || "Account";
-    
-    setAvatar(
-  $("myAvatar"),
-  myProfile?.avatar,
-  $("myName").textContent
-);
-   
-const {data:profile,error}=await db.from("profiles").select("id,username,verified,avatar").eq("id",user.id).maybeSingle();
+  async function enterApp(user) {
+  const { data: profile, error } = await db
+    .from("profiles")
+    .select("id,username,verified,avatar")
+    .eq("id", user.id)
+    .maybeSingle();
 
-    if(error){showFatal("Couldn't load your profile. Check that the SQL setup and policies have been applied.");return;}
-    if(!profile){showFatal("Your profile isn't ready yet. Confirm your email if required, then log out and back in. If this continues, check the SQL setup.");return;}
-    
-myProfile = profile;
-$("myName").textContent = profile.username;
-setAvatar($("myAvatar"), profile.avatar, profile.username);
-$("myVerifiedIcon").classList.toggle("hidden", profile.verified !== true);
-
-try {
-  await loadBubbleSettings();
-} catch (error) {
-  console.error("Loading bubble settings failed:", error);
-  $("bubbleSettingsStatus").textContent =
-    "Couldn't load saved bubble settings: " + error.message;
-}
-
-await loadPeople();
-    if(refreshTimer)clearInterval(refreshTimer);
-    refreshTimer=setInterval(async()=>{await loadPeople(true);if(selectedUser)await loadMessages(true);},4000);
+  if (error) {
+    currentUser = null;
+    myProfile = null;
+    console.error("Profile loading failed:", error);
+    showAuth();
+    setNotice(
+      "Couldn't load your profile. Check your Supabase profiles table and SELECT policy.",
+      true
+    );
+    return;
   }
+
+  if (!profile) {
+    currentUser = null;
+    myProfile = null;
+    showAuth();
+    setNotice(
+      "Your profile wasn't found. Check your Supabase profile creation setup.",
+      true
+    );
+    return;
+  }
+
+  currentUser = user;
+  myProfile = profile;
+
+  $("myName").textContent = profile.username;
+  setAvatar($("myAvatar"), profile.avatar, profile.username);
+  $("myVerifiedIcon").classList.toggle(
+    "hidden",
+    profile.verified !== true
+  );
+
+  showApp();
+
+  try {
+    await loadBubbleSettings();
+  } catch (error) {
+    console.error("Loading bubble settings failed:", error);
+    $("bubbleSettingsStatus").textContent =
+      "Couldn't load saved bubble settings: " + error.message;
+  }
+
+  await loadPeople();
+
+  if (refreshTimer) clearInterval(refreshTimer);
+
+  refreshTimer = setInterval(async () => {
+    await loadPeople(true);
+    if (selectedUser) await loadMessages(true);
+  }, 4000);
+}
   function showFatal(message){$("people").innerHTML=`<div class="muted small" style="padding:12px">${escapeHtml(message)}</div>`;}
   function stopRefresh(){if(refreshTimer)clearInterval(refreshTimer);refreshTimer=null;if(searchTimer)clearTimeout(searchTimer);searchTimer=null;}
 
