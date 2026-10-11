@@ -1014,27 +1014,31 @@ let imageResolutionFailed = false;
       .select("id,storage_path,file_name,mime_type")
       .in("id", attachmentIds);
 
-    if (attachmentError) {
-  imageResolutionFailed = true;
-  console.error("Loading image attachments failed:", attachmentError);
-    } else {
-      for (const attachment of attachments || []) {
-        const { data: signedData, error: signedError } = await db.storage
-          .from("hds-attachments")
-          .createSignedUrl(attachment.storage_path, 3600);
 
-        if (!signedError && signedData?.signedUrl) {
-  attachmentsById[attachment.id] = {
-    url: signedData.signedUrl,
-    name: attachment.file_name
-  };
-} else {
+if (attachmentError) {
   imageResolutionFailed = true;
-}
-        }
-      }
+  console.error(
+    "Loading image attachments failed:",
+    attachmentError
+  );
+} else {
+  for (const attachment of attachments || []) {
+    const { data: signedData, error: signedError } =
+      await db.storage
+        .from("hds-attachments")
+        .createSignedUrl(attachment.storage_path, 3600);
+
+    if (!signedError && signedData?.signedUrl) {
+      attachmentsById[attachment.id] = {
+        url: signedData.signedUrl,
+        name: attachment.file_name
+      };
+    } else {
+      imageResolutionFailed = true;
     }
   }
+}
+
 
   const box = $("messages");
   const wasNearBottom =
@@ -1088,7 +1092,7 @@ lastRenderedImagesFailed = imageResolutionFailed;
 }
 
 
-  $("composer").addEventListener("submit",async event=>{
+  $("composer").addEventListener("submit", async event => {
     event.preventDefault();
     const input=$("messageInput"), content=input.value.trim();
     if(!content||!selectedUser||!currentUser)return;
