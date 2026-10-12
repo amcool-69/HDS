@@ -302,6 +302,60 @@ body {
   border-radius: 8px;
 }
 
+    
+<section id="voiceCallPanel"
+         class="call-overlay hidden"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="voiceCallTitle">
+
+  <div class="call-card">
+    <div style="font-size:36px;margin-bottom:8px">📞</div>
+
+    <h2 id="voiceCallTitle">HDS voice call</h2>
+
+    <p id="voiceCallPeer" class="muted">
+      One-to-one audio
+    </p>
+
+    <p id="voiceCallStatus"
+       class="call-status"
+       role="status"
+       aria-live="polite">
+      Ready
+    </p>
+
+    <audio id="remoteCallAudio" autoplay playsinline></audio>
+
+    <div class="call-actions">
+      <button id="acceptVoiceCall"
+              class="call-accept hidden"
+              type="button">
+        Accept
+      </button>
+
+      <button id="rejectVoiceCall"
+              class="call-danger hidden"
+              type="button">
+        Reject
+      </button>
+
+      <button id="muteVoiceCall"
+              class="call-secondary hidden"
+              type="button">
+        Mute
+      </button>
+
+      <button id="endVoiceCall"
+              class="call-danger hidden"
+              type="button">
+        End call
+      </button>
+    </div>
+  </div>
+</section>
+
+
 
   </style>
 </head>
@@ -464,16 +518,29 @@ body {
 
     </aside>
     <section class="chat">
-      <header class="chat-head">
-        <button id="backButton" class="mobile-top">← Back</button>
-        <div id="chatAvatar" class="avatar">H</div>
-        <div><div id="chatName" class="chat-title">Choose someone</div><div id="chatSub" class="chat-status">Your DMs will appear here</div></div>
-      </header>
-      <div id="chatEmpty" class="empty"><div class="empty-inner"><div class="empty-icon">✦</div><h2>Your space to talk.</h2><p>Choose someone from the list to start a direct message. Search a username to find people on HDS.</p></div></div>
-      <div id="messages" class="messages hidden" aria-live="polite"></div>
-      <form id="composer" class="composer hidden"><input id="messageInput" maxlength="2000" placeholder="Write a message…" autocomplete="off" aria-label="Message"><button class="primary send" type="submit">Send ↗</button></form>
-    </section>
-  </main>
+<header class="chat-head">
+  <button id="backButton" class="mobile-top" type="button">
+    ← Back
+  </button>
+
+  <div id="chatAvatar" class="avatar">H</div>
+
+  <div style="min-width:0;flex:1">
+    <div id="chatName" class="chat-title">Choose someone</div>
+    <div id="chatSub" class="chat-status">
+      Your DMs will appear here
+    </div>
+  </div>
+
+  <button id="voiceCallButton"
+          class="call-button"
+          type="button"
+          disabled
+          title="Start a voice call">
+    📞 Call
+  </button>
+</header>
+
 
 <script>
 (() => {
@@ -485,6 +552,16 @@ const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_9rioOwsc_HZpa42rSLiuYA_sZGfYvrk
   const authScreen = $("authScreen"), app = $("app");
   let db = null, currentUser = null, myProfile = null, selectedUser = null;
   let signupMode = false, peopleCache = [], refreshTimer = null, searchTimer = null;
+  // HDS voice-call state
+let callSignalChannel = null;
+let activeCall = null;
+let localAudioStream = null;
+let pendingIceCandidates = [];
+let callSignalBusy = false;
+
+const HDS_ICE_SERVERS = [
+  { urls: "stun:stun.l.google.com:19302" }
+];
 
 let lastRenderedMessagesKey = null;
 let lastMessagesRenderedAt = 0;
@@ -540,11 +617,28 @@ let lastRenderedImagesFailed = false;
     if(error){setNotice(error.message,true);return;}
     if(data.session) await enterApp(data.session.user);
     else showAuth();
-    db.auth.onAuthStateChange((event,session)=>{
-      if(event==="SIGNED_OUT"){currentUser=null;selectedUser=null;stopRefresh();showAuth();}
-      else if(session && !currentUser){setTimeout(()=>enterApp(session.user),0);}
-    });
+   
+db.auth.onAuthStateChange((event, session) => {
+  if (event === "SIGNED_OUT") {
+    currentUser = null;
+    myProfile = null;
+    selectedUser = null;
+
+    stopRefresh();
+
+    if (callSignalChannel && db) {
+      db.removeChannel(callSignalChannel);
+      callSignalChannel = null;
+    }
+
+    finishVoiceCall(false).catch(console.error);
+
+    showAuth();
+  } else if (session && !currentUser) {
+    setTimeout(() => enterApp(session.user), 0);
   }
+});
+
 
   $("authForm").addEventListener("submit",async event=>{
     event.preventDefault(); clearNotice();
@@ -609,6 +703,7 @@ let lastRenderedImagesFailed = false;
   );
 
   showApp();
+    await setupCallSignaling();
 
   try {
     await loadBubbleSettings();
@@ -668,6 +763,7 @@ list.innerHTML = peopleCache.map(person => `
   async function selectPerson(person){
     if(!person||person.id===currentUser.id)return;
     selectedUser=person; app.classList.add("chat-open");
+    renderCallPanel();
     
 $("chatName").innerHTML =
   `${escapeHtml(person.username)}${
@@ -1319,6 +1415,568 @@ $("messageInput").addEventListener("paste", async event => {
     input.focus();
   }
 });
+
+  /* HDS voice calls */
+.call-button {
+  margin-left: auto;
+  flex: none;
+  padding: 9px 12px;
+  border: 1px solid #39304f;
+  border-radius: 10px;
+  background: #242033;
+  color: #e7ddff;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.call-button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.call-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: #05050bdc;
+}
+
+.call-card {
+  width: min(100%, 380px);
+  padding: 24px;
+  border: 1px solid #39304f;
+  border-radius: 20px;
+  background: #141320;
+  color: #f4f1ff;
+  box-shadow: 0 24px 90px #000a;
+  text-align: center;
+}
+
+.call-card h2 {
+  margin: 0 0 8px;
+}
+
+.call-status {
+  min-height: 24px;
+  color: #bdb5d8;
+  overflow-wrap: anywhere;
+}
+
+.call-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.call-actions button {
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 10px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.call-accept {
+  background: #22a06b;
+  color: white;
+}
+
+.call-danger {
+  background: #9f2945;
+  color: white;
+}
+
+.call-secondary {
+  background: #29293b;
+  color: #f4f4fb;
+}
+
+  
+function callPanelStatus(message) {
+  $("voiceCallStatus").textContent = message;
+}
+
+function renderCallPanel() {
+  const call = activeCall;
+
+  $("voiceCallPanel").classList.toggle("hidden", !call);
+  $("voiceCallButton").disabled = !selectedUser || !!call;
+
+  if (!call) return;
+
+  const peer = peopleCache.find(p => p.id === call.peerId);
+
+  $("voiceCallTitle").textContent =
+    call.state === "incoming" ? "Incoming voice call" :
+    call.state === "calling" ? "Calling…" :
+    call.state === "connected" ? "Voice call connected" :
+    "HDS voice call";
+
+  $("voiceCallPeer").textContent =
+    peer?.username || call.peerName || "HDS user";
+
+  const incoming = call.state === "incoming";
+
+  $("acceptVoiceCall").classList.toggle("hidden", !incoming);
+  $("rejectVoiceCall").classList.toggle("hidden", !incoming);
+  $("muteVoiceCall").classList.toggle(
+    "hidden", call.state !== "connected"
+  );
+  $("endVoiceCall").classList.toggle("hidden", incoming);
+
+  $("muteVoiceCall").textContent = call.muted ? "Unmute" : "Mute";
+}
+
+async function sendCallSignal(call, kind, payload = {}) {
+  if (!db || !currentUser || !call) {
+    throw new Error("You are not signed in.");
+  }
+
+  const { error } = await db.from("hds_call_signals").insert({
+    call_id: call.id,
+    caller_id: call.callerId,
+    callee_id: call.calleeId,
+    from_user: currentUser.id,
+    to_user: call.peerId,
+    kind,
+    payload
+  });
+
+  if (error) throw error;
+}
+
+async function setupCallSignaling() {
+  if (!db || !currentUser) return;
+
+  if (callSignalChannel) {
+    await db.removeChannel(callSignalChannel);
+    callSignalChannel = null;
+  }
+
+  const userId = currentUser.id;
+
+  callSignalChannel = db
+    .channel("hds-calls-" + userId)
+    .on("postgres_changes", {
+      event: "INSERT",
+      schema: "public",
+      table: "hds_call_signals",
+      filter: "to_user=eq." + userId
+    }, event => {
+      if (currentUser?.id !== userId) return;
+
+      handleCallSignal(event.new).catch(error => {
+        console.error("HDS call signaling error:", error);
+
+        if (activeCall) {
+          callPanelStatus(
+            "Call signaling error: " + error.message
+          );
+        }
+      });
+    })
+    .subscribe(status => {
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        console.error("HDS call subscription failed:", status);
+      }
+    });
+}
+
+async function createVoicePeerConnection(call) {
+  const pc = new RTCPeerConnection({
+    iceServers: HDS_ICE_SERVERS
+  });
+
+  call.pc = pc;
+
+  pc.onicecandidate = event => {
+    if (!event.candidate || activeCall?.id !== call.id) return;
+
+    sendCallSignal(call, "ice", {
+      candidate: event.candidate.toJSON()
+    }).catch(error => {
+      console.error("Sending ICE candidate failed:", error);
+
+      if (activeCall?.id === call.id) {
+        callPanelStatus("Network setup failed: " + error.message);
+      }
+    });
+  };
+
+  pc.ontrack = event => {
+    if (activeCall?.id !== call.id) return;
+
+    const audio = $("remoteCallAudio");
+    const stream = event.streams?.[0];
+
+    if (!stream) return;
+
+    audio.srcObject = stream;
+
+    audio.play().catch(() => {
+      callPanelStatus(
+        "Connected. Interact with the page if audio doesn't start."
+      );
+    });
+  };
+
+  pc.onconnectionstatechange = () => {
+    if (activeCall?.id !== call.id) return;
+
+    if (pc.connectionState === "connected") {
+      call.state = "connected";
+      callPanelStatus("Connected · peer-to-peer audio");
+      renderCallPanel();
+    } else if (pc.connectionState === "failed") {
+      callPanelStatus(
+        "Connection failed. This network may need TURN relay support."
+      );
+    } else if (pc.connectionState === "disconnected") {
+      callPanelStatus("Connection interrupted…");
+    }
+  };
+
+  try {
+    localAudioStream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: false
+    });
+
+    if (activeCall?.id !== call.id) {
+      localAudioStream.getTracks().forEach(track => track.stop());
+      localAudioStream = null;
+      pc.close();
+      throw new Error("The call was cancelled.");
+    }
+
+    for (const track of localAudioStream.getAudioTracks()) {
+      pc.addTrack(track, localAudioStream);
+    }
+
+    return pc;
+  } catch (error) {
+    pc.close();
+    throw error;
+  }
+}
+
+async function flushPendingIce(call) {
+  if (!call.pc?.remoteDescription) return;
+
+  const matching = pendingIceCandidates.filter(
+    item => item.callId === call.id
+  );
+
+  pendingIceCandidates = pendingIceCandidates.filter(
+    item => item.callId !== call.id
+  );
+
+  for (const item of matching) {
+    try {
+      await call.pc.addIceCandidate(item.candidate);
+    } catch (error) {
+      console.warn("Could not add queued ICE candidate:", error);
+    }
+  }
+}
+
+async function handleCallSignal(signal) {
+  if (!signal || !currentUser) return;
+  if (signal.to_user !== currentUser.id) return;
+
+  const participants = [signal.caller_id, signal.callee_id];
+
+  if (
+    signal.caller_id === signal.callee_id ||
+    !participants.includes(signal.from_user) ||
+    !participants.includes(signal.to_user) ||
+    signal.from_user === signal.to_user
+  ) {
+    return;
+  }
+
+  if (signal.kind === "offer") {
+    if (!signal.payload?.offer) return;
+
+    if (activeCall) {
+      const busyCall = {
+        id: signal.call_id,
+        callerId: signal.caller_id,
+        calleeId: signal.callee_id,
+        peerId: signal.from_user
+      };
+
+      await sendCallSignal(busyCall, "busy");
+      return;
+    }
+
+    const caller = peopleCache.find(
+      p => p.id === signal.from_user
+    );
+
+    activeCall = {
+      id: signal.call_id,
+      callerId: signal.caller_id,
+      calleeId: signal.callee_id,
+      peerId: signal.from_user,
+      peerName: caller?.username || "HDS user",
+      role: "callee",
+      state: "incoming",
+      remoteOffer: signal.payload.offer,
+      pc: null,
+      muted: false
+    };
+
+    renderCallPanel();
+    callPanelStatus(
+      "Incoming audio call. Accept to enable your microphone."
+    );
+    return;
+  }
+
+  // ICE candidates can arrive before the offer is processed.
+  if (signal.kind === "ice") {
+    const candidate = signal.payload?.candidate;
+    if (!candidate) return;
+
+    if (
+      activeCall &&
+      activeCall.id === signal.call_id &&
+      activeCall.peerId === signal.from_user &&
+      activeCall.pc?.remoteDescription
+    ) {
+      await activeCall.pc.addIceCandidate(candidate);
+      return;
+    }
+
+    // Queue only candidates for the current call, or candidates
+    // that arrived before its offer notification.
+    if (
+      !activeCall ||
+      (
+        activeCall.id === signal.call_id &&
+        activeCall.peerId === signal.from_user
+      )
+    ) {
+      if (pendingIceCandidates.length < 100) {
+        pendingIceCandidates.push({
+          callId: signal.call_id,
+          candidate
+        });
+      }
+    }
+
+    return;
+  }
+
+  const call = activeCall;
+
+  if (
+    !call ||
+    signal.call_id !== call.id ||
+    signal.from_user !== call.peerId
+  ) {
+    return;
+  }
+
+  if (
+    signal.kind === "answer" &&
+    call.role === "caller" &&
+    call.pc &&
+    signal.payload?.answer
+  ) {
+    await call.pc.setRemoteDescription(signal.payload.answer);
+    await flushPendingIce(call);
+    callPanelStatus("Connecting audio…");
+  } else if (signal.kind === "reject") {
+    await finishVoiceCall(false);
+    alert("Your voice call was declined.");
+  } else if (signal.kind === "busy") {
+    await finishVoiceCall(false);
+    alert("That user is already on a call.");
+  } else if (signal.kind === "hangup") {
+    await finishVoiceCall(false);
+    alert("The other user ended the call.");
+  }
+}
+
+async function startVoiceCall() {
+  if (
+    !currentUser ||
+    !selectedUser ||
+    activeCall ||
+    callSignalBusy
+  ) {
+    return;
+  }
+
+  if (
+    !navigator.mediaDevices?.getUserMedia ||
+    !window.RTCPeerConnection ||
+    !window.crypto?.randomUUID
+  ) {
+    alert("This browser doesn't support the required voice-call features.");
+    return;
+  }
+
+  callSignalBusy = true;
+
+  const peer = selectedUser;
+
+  const call = {
+    id: crypto.randomUUID(),
+    callerId: currentUser.id,
+    calleeId: peer.id,
+    peerId: peer.id,
+    peerName: peer.username,
+    role: "caller",
+    state: "calling",
+    pc: null,
+    muted: false
+  };
+
+  activeCall = call;
+  pendingIceCandidates = [];
+
+  renderCallPanel();
+  callPanelStatus("Requesting microphone permission…");
+
+  try {
+    const pc = await createVoicePeerConnection(call);
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    await sendCallSignal(call, "offer", {
+      offer: pc.localDescription.toJSON()
+    });
+
+    callPanelStatus("Calling " + peer.username + "…");
+  } catch (error) {
+    console.error("Starting HDS voice call failed:", error);
+
+    if (activeCall?.id === call.id) {
+      await finishVoiceCall(true, "hangup");
+    }
+
+    alert(
+      "Couldn't start the call: " +
+      (error.message || "Check microphone permission.")
+    );
+  } finally {
+    callSignalBusy = false;
+  }
+}
+
+async function acceptVoiceCall() {
+  const call = activeCall;
+
+  if (!call || call.state !== "incoming") return;
+
+  $("acceptVoiceCall").disabled = true;
+  callPanelStatus("Requesting microphone permission…");
+
+  try {
+    const pc = await createVoicePeerConnection(call);
+
+    await pc.setRemoteDescription(call.remoteOffer);
+    await flushPendingIce(call);
+
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+
+    await sendCallSignal(call, "answer", {
+      answer: pc.localDescription.toJSON()
+    });
+
+    call.state = "connecting";
+    renderCallPanel();
+    callPanelStatus("Connecting audio…");
+  } catch (error) {
+    console.error("Accepting HDS voice call failed:", error);
+
+    if (activeCall?.id === call.id) {
+      await finishVoiceCall(true, "reject");
+    }
+
+    alert(
+      "Couldn't accept the call: " +
+      (error.message || "Check microphone permission.")
+    );
+  } finally {
+    $("acceptVoiceCall").disabled = false;
+  }
+}
+
+async function finishVoiceCall(
+  notifyPeer = true,
+  signalKind = "hangup"
+) {
+  const call = activeCall;
+  if (!call) return;
+
+  activeCall = null;
+  pendingIceCandidates = [];
+
+  if (notifyPeer && currentUser && call.peerId) {
+    try {
+      await sendCallSignal(call, signalKind);
+    } catch (error) {
+      console.warn("Could not notify the other caller:", error);
+    }
+  }
+
+  if (call.pc) {
+    call.pc.onicecandidate = null;
+    call.pc.ontrack = null;
+    call.pc.onconnectionstatechange = null;
+    call.pc.close();
+  }
+
+  if (localAudioStream) {
+    localAudioStream.getTracks().forEach(track => track.stop());
+    localAudioStream = null;
+  }
+
+  const audio = $("remoteCallAudio");
+  audio.pause();
+  audio.srcObject = null;
+
+  renderCallPanel();
+}
+
+$("voiceCallButton").addEventListener("click", startVoiceCall);
+
+$("acceptVoiceCall").addEventListener(
+  "click",
+  acceptVoiceCall
+);
+
+$("rejectVoiceCall").addEventListener("click", () => {
+  finishVoiceCall(true, "reject");
+});
+
+$("endVoiceCall").addEventListener("click", () => {
+  finishVoiceCall(true, "hangup");
+});
+
+$("muteVoiceCall").addEventListener("click", () => {
+  if (!localAudioStream || !activeCall) return;
+
+  activeCall.muted = !activeCall.muted;
+
+  localAudioStream.getAudioTracks().forEach(track => {
+    track.enabled = !activeCall.muted;
+  });
+
+  renderCallPanel();
+});
+
 
   setAuthMode(false);
 boot();
