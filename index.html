@@ -485,6 +485,17 @@ const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_9rioOwsc_HZpa42rSLiuYA_sZGfYvrk
   const authScreen = $("authScreen"), app = $("app");
   let db = null, currentUser = null, myProfile = null, selectedUser = null;
   let signupMode = false, peopleCache = [], refreshTimer = null, searchTimer = null;
+  const dmRing = new Audio("./ring.mp3");
+dmRing.preload = "auto";
+let knownDmIds = new Set();
+let dmNotificationsReady = false;
+
+document.addEventListener("click", () => {
+  dmRing.play().then(() => {
+    dmRing.pause();
+    dmRing.currentTime = 0;
+  }).catch(() => {});
+}, { once: true });
 
 let lastRenderedMessagesKey = null;
 let lastMessagesRenderedAt = 0;
@@ -623,9 +634,10 @@ let lastRenderedImagesFailed = false;
   if (refreshTimer) clearInterval(refreshTimer);
 
   refreshTimer = setInterval(async () => {
-    await loadPeople(true);
-    if (selectedUser) await loadMessages(true);
-  }, 4000);
+  await loadPeople(true);
+  if (selectedUser) await loadMessages(true);
+  await checkBackgroundDMs();
+}, 4000);
 }
   function showFatal(message){$("people").innerHTML=`<div class="muted small" style="padding:12px">${escapeHtml(message)}</div>`;}
   function stopRefresh(){if(refreshTimer)clearInterval(refreshTimer);refreshTimer=null;if(searchTimer)clearTimeout(searchTimer);searchTimer=null;}
@@ -946,7 +958,36 @@ $("resetBubbleSettings").addEventListener("click", async () => {
   }
 });
 
+async function checkBackgroundDMs() {
+  if (!currentUser) return;
 
+  const { data, error } = await db
+    .from("messages")
+    .select("id, sender_id, receiver_id")
+    .eq("receiver_id", currentUser.id)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (error || !data) return;
+
+  if (!dmNotificationsReady) {
+    data.forEach(m => knownDmIds.add(String(m.id)));
+    dmNotificationsReady = true;
+    return;
+  }
+
+  for (const message of data.slice().reverse()) {
+    const id = String(message.id);
+    if (knownDmIds.has(id)) continue;
+
+    knownDmIds.add(id);
+
+    if (document.hidden && message.sender_id !== currentUser.id) {
+      dmRing.currentTime = 0;
+      dmRing.play().catch(() => {});
+    }
+  }
+}
 
 
 async function loadMessages(quiet = false) {
