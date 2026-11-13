@@ -688,6 +688,7 @@ messagesChannel = db
   .subscribe(status => {
     console.log("HDS Realtime status:", status);
   });
+  }
 
   function showFatal(message){$("people").innerHTML=`<div class="muted small" style="padding:12px">${escapeHtml(message)}</div>`;}
   function stopRefresh() {
