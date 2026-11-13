@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -481,11 +480,18 @@ const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_9rioOwsc_HZpa42rSLiuYA_sZGfYvrk
   let knownDmIds = new Set();
   let dmNotificationsReady = false;
 
+  // Prime audio playback silently after the user's first interaction.
+  // Actual notification sounds are played only by checkBackgroundDMs()
+  // while the tab is hidden.
   document.addEventListener("click", () => {
+    dmRing.muted = true;
     dmRing.play().then(() => {
       dmRing.pause();
       dmRing.currentTime = 0;
-    }).catch(() => {});
+      dmRing.muted = false;
+    }).catch(() => {
+      dmRing.muted = false;
+    });
   }, { once: true });
 
   let lastRenderedMessagesKey = null;
