@@ -474,6 +474,14 @@ const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_9rioOwsc_HZpa42rSLiuYA_sZGfYvrk
   const $ = id => document.getElementById(id);
   const authScreen = $("authScreen"), app = $("app");
   let db = null, currentUser = null, myProfile = null, selectedUser = null;
+  let messagesChannel = null;
+
+function stopRealtime() {
+  if (messagesChannel && db) {
+    db.removeChannel(messagesChannel);
+    messagesChannel = null;
+  }
+}
   let signupMode = false, peopleCache = [], refreshTimer = null, searchTimer = null;
   const dmRing = new Audio("./ring.mp3");
   dmRing.preload = "auto";
@@ -631,19 +639,66 @@ const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_9rioOwsc_HZpa42rSLiuYA_sZGfYvrk
         "Couldn't load saved bubble settings: " + error.message;
     }
 
-    await loadPeople();
+await loadPeople();
 
-    if (refreshTimer) clearInterval(refreshTimer);
+stopRealtime();
 
-    refreshTimer = setInterval(async () => {
-      await loadPeople(true);
-      if (selectedUser) await loadMessages(true);
-      await checkBackgroundDMs();
-    }, 4000);
-  }
+messagesChannel = db
+  .channel("hds-messages-" + currentUser.id)
+  .on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "messages"
+    },
+    payload => {
+      const message = payload.new || payload.old;
+
+      if (!message) return;
+
+      // Only process messages involving this account.
+      if (
+        message.sender_id !== currentUser.id &&
+        message.receiver_id !== currentUser.id
+      ) return;
+
+      // Refresh the open conversation when it changes.
+      if (
+        selectedUser &&
+        (
+          message.sender_id === selectedUser.id ||
+          message.receiver_id === selectedUser.id
+        )
+      ) {
+        loadMessages(true);
+      }
+
+      // Play the notification sound for incoming messages.
+      if (
+        payload.eventType === "INSERT" &&
+        message.receiver_id === currentUser.id &&
+        document.hidden
+      ) {
+        dmRing.currentTime = 0;
+        dmRing.play().catch(() => {});
+      }
+    }
+  )
+  .subscribe(status => {
+    console.log("HDS Realtime status:", status);
+  });
 
   function showFatal(message){$("people").innerHTML=`<div class="muted small" style="padding:12px">${escapeHtml(message)}</div>`;}
-  function stopRefresh(){if(refreshTimer)clearInterval(refreshTimer);refreshTimer=null;if(searchTimer)clearTimeout(searchTimer);searchTimer=null;}
+  function stopRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = null;
+
+  if (searchTimer) clearTimeout(searchTimer);
+  searchTimer = null;
+
+  stopRealtime();
+}
 
   async function loadPeople(quiet=false){
     if(!currentUser||!myProfile)return;
