@@ -498,6 +498,7 @@ document.addEventListener("click", () => {
 }, { once: true });
 
 let lastRenderedMessagesKey = null;
+  const hdsImageUrlCache = new Map();
 let lastMessagesRenderedAt = 0;
 let lastRenderedImagesFailed = false;
   const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
@@ -990,6 +991,7 @@ async function checkBackgroundDMs() {
 }
 
 
+
 async function loadMessages(quiet = false) {
   if (!currentUser || !selectedUser) return;
 
@@ -1007,59 +1009,72 @@ async function loadMessages(quiet = false) {
   if (error) {
     if (!quiet) {
       $("messages").innerHTML =
-        '<div class="muted small">Could not load messages. Check the messages table policies.</div>';
+        '<div class="muted small">Could not load messages.</div>';
     }
     return;
   }
 
+  // Don't update a conversation that has since been switched.
+  if (selectedUser?.id !== other) return;
+
   const messages = data || [];
+  const box = $("messages");
 
-  const messagesKey = JSON.stringify([
-    currentUser.id,
-    other,
-    messages.map(m => [
-      m.id,
-      m.sender_id,
-      m.content,
-      m.created_at
-    ])
-  ]);
+  const wasNearBottom =
+    box.scrollHeight - box.scrollTop - box.clientHeight < 100;
 
-  const imageUrlRefreshDue =
-    Date.now() - lastMessagesRenderedAt >= 50 * 60 * 1000;
+  const messageIds = new Set(messages.map(m => String(m.id)));
+  let addedMessage = false;
 
-  if (
-    messagesKey === lastRenderedMessagesKey &&
-    !lastRenderedImagesFailed &&
-    !imageUrlRefreshDue
-  ) {
-    return;
-  }
+  // Remove deleted messages without touching existing images.
+  box.querySelectorAll("[data-message-id]").forEach(row => {
+    if (!messageIds.has(row.dataset.messageId)) {
+      row.remove();
+    }
+  });
 
-  const attachmentIds = [
+  // Find images that still need resolving.
+  const neededImageIds = [
     ...new Set(
       messages
-        .map(m => m.content.match(/^hds-image:([0-9a-f-]{36})$/i)?.[1])
+        .filter(m => {
+          const imageId = m.content.match(
+            /^hds-image:([0-9a-f-]{36})$/i
+          )?.[1];
+
+          if (!imageId) return false;
+
+          const existing = box.querySelector(
+            `[data-message-id="${CSS.escape(String(m.id))}"]`
+          );
+
+          // Already rendered successfully? Leave it alone.
+          if (existing?.querySelector("img.hds-chat-image")) {
+            return false;
+          }
+
+          return true;
+        })
+        .map(m => m.content.match(
+          /^hds-image:([0-9a-f-]{36})$/i
+        )?.[1])
         .filter(Boolean)
-    )
+      )
   ];
 
-  const attachmentsById = {};
-  let imageResolutionFailed = false;
+  // Resolve image URLs only when necessary.
+  const missingIds = neededImageIds.filter(
+    id => !hdsImageUrlCache.has(id) ||
+          hdsImageUrlCache.get(id).expiresAt < Date.now()
+  );
 
-  if (attachmentIds.length) {
+  if (missingIds.length) {
     const { data: attachments, error: attachmentError } = await db
       .from("file_attachments")
-      .select("id,storage_path,file_name,mime_type")
-      .in("id", attachmentIds);
+      .select("id,storage_path,file_name")
+      .in("id", missingIds);
 
-    if (attachmentError) {
-      imageResolutionFailed = true;
-      console.error(
-        "Loading image attachments failed:",
-        attachmentError
-      );
-    } else {
+    if (!attachmentError) {
       for (const attachment of attachments || []) {
         const { data: signedData, error: signedError } =
           await db.storage
@@ -1067,61 +1082,99 @@ async function loadMessages(quiet = false) {
             .createSignedUrl(attachment.storage_path, 3600);
 
         if (!signedError && signedData?.signedUrl) {
-          attachmentsById[attachment.id] = {
+          hdsImageUrlCache.set(attachment.id, {
             url: signedData.signedUrl,
-            name: attachment.file_name
-          };
-        } else {
-          imageResolutionFailed = true;
+            name: attachment.file_name,
+            expiresAt: Date.now() + 55 * 60 * 1000
+          });
         }
       }
+    } else {
+      console.error("Image attachment lookup failed:", attachmentError);
     }
   }
 
-  const box = $("messages");
-  const wasNearBottom =
-    box.scrollHeight - box.scrollTop - box.clientHeight < 100;
+  // Only create new message elements.
+  for (const message of messages) {
+    const id = String(message.id);
 
-  box.innerHTML = messages.map(message => {
-    const mine = message.sender_id === currentUser.id;
+    let row = box.querySelector(
+      `[data-message-id="${CSS.escape(id)}"]`
+    );
+
     const imageId = message.content.match(
       /^hds-image:([0-9a-f-]{36})$/i
     )?.[1];
 
-    let contentHtml;
+    const attachment = imageId
+      ? hdsImageUrlCache.get(imageId)
+      : null;
 
-    if (imageId) {
-      const attachment = attachmentsById[imageId];
+    if (!row) {
+      row = document.createElement("div");
+      row.className = "msg-row";
+      row.dataset.messageId = id;
 
-      if (!attachment) {
-        imageResolutionFailed = true;
+      if (message.sender_id === currentUser.id) {
+        row.classList.add("mine");
       }
 
-      contentHtml = attachment
-        ? `<img class="hds-chat-image"
-                src="${escapeHtml(attachment.url)}"
-                alt="${escapeHtml(attachment.name)}"
-                loading="lazy">`
-        : '<span class="bubble-text">Image unavailable.</span>';
-    } else {
-      contentHtml =
-        `<span class="bubble-text">${escapeHtml(message.content)}</span>`;
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+
+      const time = document.createElement("div");
+      time.className = "msg-time";
+      time.textContent =
+        `${message.sender_id === currentUser.id
+          ? "You"
+          : selectedUser.username} · ${prettyTime(message.created_at)}`;
+
+      row.appendChild(bubble);
+      row.appendChild(time);
+
+      box.appendChild(row);
+      addedMessage = true;
     }
 
-    return `
-      <div class="msg-row ${mine ? "mine" : ""}">
-        <div class="bubble">${contentHtml}</div>
-        <div class="msg-time">${mine ? "You" : escapeHtml(selectedUser.username)} · ${escapeHtml(prettyTime(message.created_at))}</div>
-      </div>
-    `;
-  }).join("");
+    const bubble = row.querySelector(".bubble");
 
-  if (!messages.length) {
-    box.innerHTML =
-      '<div class="day-note">This is the beginning of your conversation. Say hi 👋</div>';
+    // Never replace an image that has already rendered.
+    if (imageId && !bubble.querySelector("img.hds-chat-image")) {
+      if (attachment) {
+        const image = document.createElement("img");
+        image.className = "hds-chat-image";
+        image.src = attachment.url;
+        image.alt = attachment.name || "Image";
+        image.loading = "lazy";
+
+        bubble.replaceChildren(image);
+      } else if (!bubble.textContent) {
+        const placeholder = document.createElement("span");
+        placeholder.className = "bubble-text";
+        placeholder.textContent = "Loading image...";
+        bubble.appendChild(placeholder);
+      }
+    } else if (!imageId && !bubble.hasChildNodes()) {
+      const text = document.createElement("span");
+      text.className = "bubble-text";
+      text.textContent = message.content;
+      bubble.appendChild(text);
+    }
   }
 
-  lastRenderedMessagesKey = messagesKey;
+  // Keep the empty conversation message.
+  if (!messages.length && !box.querySelector(".day-note")) {
+    box.innerHTML =
+      '<div class="day-note">This is the beginning of your conversation. Say hi 👋</div>';
+  } else if (messages.length) {
+    box.querySelector(".day-note")?.remove();
+  }
+
+  if (addedMessage && (!quiet || wasNearBottom)) {
+    box.scrollTop = box.scrollHeight;
+  }
+}
+
   lastMessagesRenderedAt = Date.now();
   lastRenderedImagesFailed = imageResolutionFailed;
 
