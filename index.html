@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -62,8 +63,6 @@
   font-size: 17px;
 }
 
-
-
 .settings-panel {
   position: fixed;
   top: 8px;
@@ -80,8 +79,6 @@
   box-sizing: border-box;
   z-index: 1000;
 }
-
-
 
 .settings-heading {
   display: flex;
@@ -123,7 +120,6 @@
   display: block;
 }
     
-
 /* HDS Custom Chat Bubbles */
 .msg-row {
   max-width: min(70%, 500px);
@@ -142,7 +138,6 @@
   box-sizing: border-box;
 }
 
-
 .bubble::before {
   content: "";
   position: absolute;
@@ -155,7 +150,6 @@
   border-radius: inherit;
   pointer-events: none;
 }
-
 
 .bubble {
   position: relative;
@@ -185,7 +179,6 @@
 .mine .bubble::before {
   background-image: var(--hds-message-border, none);
 }
-
 
 .bubble-settings-section {
   margin-top: 18px;
@@ -292,7 +285,8 @@ body {
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-    .hds-chat-image {
+
+.hds-chat-image {
   display: block;
   width: auto;
   height: auto;
@@ -301,8 +295,6 @@ body {
   object-fit: contain;
   border-radius: 8px;
 }
-
-
   </style>
 </head>
 <body>
@@ -313,17 +305,17 @@ body {
       <p id="authDescription">Your conversations, all in one place.</p>
       <form id="authForm">
         <div id="usernameField" class="hidden">
-  <label for="username">Username</label>
-  <input
-    id="username"
-    name="username"
-    maxlength="24"
-    autocomplete="username"
-    placeholder="yourname"
-    pattern="[A-Za-z0-9_]{3,24}"
-    disabled
-  >
-</div>
+          <label for="username">Username</label>
+          <input
+            id="username"
+            name="username"
+            maxlength="24"
+            autocomplete="username"
+            placeholder="yourname"
+            pattern="[A-Za-z0-9_]{3,24}"
+            disabled
+          >
+        </div>
         <label for="email">Email</label><input id="email" type="email" required autocomplete="email" placeholder="you@example.com">
         <label for="password">Password</label><input id="password" type="password" required minlength="8" autocomplete="current-password" placeholder="At least 8 characters">
         <button id="authSubmit" class="primary wide" type="submit">Log in</button>
@@ -430,7 +422,6 @@ body {
     type="color" value="#f4f4fb">
 </div>
 
-
   <h3>PNG borders</h3>
 
   <label for="incomingBubbleFile">Incoming message border</label>
@@ -486,21 +477,22 @@ const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_9rioOwsc_HZpa42rSLiuYA_sZGfYvrk
   let db = null, currentUser = null, myProfile = null, selectedUser = null;
   let signupMode = false, peopleCache = [], refreshTimer = null, searchTimer = null;
   const dmRing = new Audio("./ring.mp3");
-dmRing.preload = "auto";
-let knownDmIds = new Set();
-let dmNotificationsReady = false;
+  dmRing.preload = "auto";
+  let knownDmIds = new Set();
+  let dmNotificationsReady = false;
 
-document.addEventListener("click", () => {
-  dmRing.play().then(() => {
-    dmRing.pause();
-    dmRing.currentTime = 0;
-  }).catch(() => {});
-}, { once: true });
+  document.addEventListener("click", () => {
+    dmRing.play().then(() => {
+      dmRing.pause();
+      dmRing.currentTime = 0;
+    }).catch(() => {});
+  }, { once: true });
 
-let lastRenderedMessagesKey = null;
+  let lastRenderedMessagesKey = null;
   const hdsImageUrlCache = new Map();
-let lastMessagesRenderedAt = 0;
-let lastRenderedImagesFailed = false;
+  let lastMessagesRenderedAt = 0;
+  let lastRenderedImagesFailed = false;
+
   const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
   const initials = name => (name || "?").trim().slice(0,1).toUpperCase();
   const setNotice = (message, error=false) => { const el=$("authNotice"); el.textContent=message; el.classList.remove("hidden","error"); if(error)el.classList.add("error"); };
@@ -509,24 +501,26 @@ let lastRenderedImagesFailed = false;
   const usernameValid = value => /^[A-Za-z0-9_]{3,24}$/.test(value);
 
   function setAvatar(element, avatarUrl, username) {
-  if (!element) return;
+    if (!element) return;
 
-  if (avatarUrl) {
-    element.replaceChildren();
+    if (avatarUrl) {
+      element.replaceChildren();
 
-    const image = document.createElement("img");
-    image.src = avatarUrl;
-    image.alt = "";
+      const image = document.createElement("img");
+      image.src = avatarUrl;
+      image.alt = "";
 
-    element.appendChild(image);
-  } else {
-    element.textContent = username
-      ? username.slice(0, 2).toUpperCase()
-      : "?";
+      element.appendChild(image);
+    } else {
+      element.textContent = username
+        ? username.slice(0, 2).toUpperCase()
+        : "?";
+    }
   }
-}
+
   function showAuth(){ authScreen.classList.remove("hidden"); app.classList.add("hidden"); }
   function showApp(){ authScreen.classList.add("hidden"); app.classList.remove("hidden"); }
+
   function setAuthMode(signup){
     signupMode=signup;
     $("authTitle").textContent=signup?"Create your HDS account":"Welcome to HDS";
@@ -540,6 +534,7 @@ let lastRenderedImagesFailed = false;
     $("password").autocomplete=signup?"new-password":"current-password";
     clearNotice();
   }
+
   $("switchMode").addEventListener("click",()=>setAuthMode(!signupMode));
 
   async function boot(){
@@ -581,75 +576,74 @@ let lastRenderedImagesFailed = false;
   });
 
   async function enterApp(user) {
-  const { data: profile, error } = await db
-    .from("profiles")
-    .select("id,username,verified,avatar")
-    .eq("id", user.id)
-    .maybeSingle();
+    const { data: profile, error } = await db
+      .from("profiles")
+      .select("id,username,verified,avatar")
+      .eq("id", user.id)
+      .maybeSingle();
 
-  if (error) {
-    currentUser = null;
-    myProfile = null;
-    console.error("Profile loading failed:", error);
-    showAuth();
-    setNotice(
-      "Couldn't load your profile. Check your Supabase profiles table and SELECT policy.",
-      true
+    if (error) {
+      currentUser = null;
+      myProfile = null;
+      console.error("Profile loading failed:", error);
+      showAuth();
+      setNotice(
+        "Couldn't load your profile. Check your Supabase profiles table and SELECT policy.",
+        true
+      );
+      return;
+    }
+
+    if (!profile) {
+      currentUser = null;
+      myProfile = null;
+      showAuth();
+      setNotice(
+        "Your profile wasn't found. Check your Supabase profile creation setup.",
+        true
+      );
+      return;
+    }
+
+    currentUser = user;
+    myProfile = profile;
+
+    $("myName").textContent = profile.username;
+    setAvatar($("myAvatar"), profile.avatar, profile.username);
+    $("myVerifiedIcon").classList.toggle(
+      "hidden",
+      profile.verified !== true
     );
-    return;
+
+    showApp();
+
+    try {
+      await loadBubbleSettings();
+    } catch (error) {
+      console.error("Loading bubble settings failed:", error);
+      $("bubbleSettingsStatus").textContent =
+        "Couldn't load saved bubble settings: " + error.message;
+    }
+
+    await loadPeople();
+
+    if (refreshTimer) clearInterval(refreshTimer);
+
+    refreshTimer = setInterval(async () => {
+      await loadPeople(true);
+      if (selectedUser) await loadMessages(true);
+      await checkBackgroundDMs();
+    }, 4000);
   }
 
-  if (!profile) {
-    currentUser = null;
-    myProfile = null;
-    showAuth();
-    setNotice(
-      "Your profile wasn't found. Check your Supabase profile creation setup.",
-      true
-    );
-    return;
-  }
-
-  currentUser = user;
-  myProfile = profile;
-
-  $("myName").textContent = profile.username;
-  setAvatar($("myAvatar"), profile.avatar, profile.username);
-  $("myVerifiedIcon").classList.toggle(
-    "hidden",
-    profile.verified !== true
-  );
-
-  showApp();
-
-  try {
-    await loadBubbleSettings();
-  } catch (error) {
-    console.error("Loading bubble settings failed:", error);
-    $("bubbleSettingsStatus").textContent =
-      "Couldn't load saved bubble settings: " + error.message;
-  }
-
-  await loadPeople();
-
-  if (refreshTimer) clearInterval(refreshTimer);
-
-  refreshTimer = setInterval(async () => {
-  await loadPeople(true);
-  if (selectedUser) await loadMessages(true);
-  await checkBackgroundDMs();
-}, 4000);
-}
   function showFatal(message){$("people").innerHTML=`<div class="muted small" style="padding:12px">${escapeHtml(message)}</div>`;}
   function stopRefresh(){if(refreshTimer)clearInterval(refreshTimer);refreshTimer=null;if(searchTimer)clearTimeout(searchTimer);searchTimer=null;}
 
   async function loadPeople(quiet=false){
     if(!currentUser||!myProfile)return;
     const term=$("userSearch").value.trim();
-    
 
-let query=db.from("profiles").select("id,username,verified,avatar").neq("id",currentUser.id).order("username").limit(100);
-
+    let query=db.from("profiles").select("id,username,verified,avatar").neq("id",currentUser.id).order("username").limit(100);
 
     if(term)query=query.ilike("username",`%${term.replace(/[%_\\]/g,"\\$&")}%`);
     const {data,error}=await query;
@@ -657,18 +651,18 @@ let query=db.from("profiles").select("id,username,verified,avatar").neq("id",cur
     peopleCache=data||[];
     const list=$("people");
     if(!peopleCache.length){list.innerHTML=`<div class="muted small" style="padding:12px">${term?"No users match that search.":"No other users yet. Share HDS with a friend!"}</div>`;return;}
-   
-list.innerHTML = peopleCache.map(person => `
-  <button class="person ${selectedUser?.id === person.id ? "active" : ""}" data-id="${escapeHtml(person.id)}">
-    <span class="avatar">${person.avatar ? `<img src="${escapeHtml(person.avatar)}" alt="">` : escapeHtml(initials(person.username))}</span>
-    <span class="person-info">
-      <span class="person-name">
-        ${escapeHtml(person.username)}${person.verified === true ? ` <img class="verified-badge" src="https://amcool-69.github.io/HDS/verified.png" alt="Verified" title="Verified account">` : ""}
-      </span>
-      <span class="person-sub">Direct message</span>
-    </span>
-  </button>
-`).join("");
+
+    list.innerHTML = peopleCache.map(person => `
+      <button class="person ${selectedUser?.id === person.id ? "active" : ""}" data-id="${escapeHtml(person.id)}">
+        <span class="avatar">${person.avatar ? `<img src="${escapeHtml(person.avatar)}" alt="">` : escapeHtml(initials(person.username))}</span>
+        <span class="person-info">
+          <span class="person-name">
+            ${escapeHtml(person.username)}${person.verified === true ? ` <img class="verified-badge" src="https://amcool-69.github.io/HDS/verified.png" alt="Verified" title="Verified account">` : ""}
+          </span>
+          <span class="person-sub">Direct message</span>
+        </span>
+      </button>
+    `).join("");
 
     list.querySelectorAll("[data-id]").forEach(button=>button.addEventListener("click",()=>selectPerson(peopleCache.find(p=>p.id===button.dataset.id))));
   }
@@ -681,466 +675,484 @@ list.innerHTML = peopleCache.map(person => `
   async function selectPerson(person){
     if(!person||person.id===currentUser.id)return;
     selectedUser=person; app.classList.add("chat-open");
-    
-$("chatName").innerHTML =
-  `${escapeHtml(person.username)}${
-    person.verified === true
-      ? ` <img class="verified-badge" src="https://amcool-69.github.io/HDS/verified.png" alt="Verified" title="Verified account">`
-      : ""
-  }`;
 
+    $("chatName").innerHTML =
+      `${escapeHtml(person.username)}${
+        person.verified === true
+          ? ` <img class="verified-badge" src="https://amcool-69.github.io/HDS/verified.png" alt="Verified" title="Verified account">`
+          : ""
+      }`;
 
-setAvatar($("chatAvatar"), person.avatar, person.username);
+    setAvatar($("chatAvatar"), person.avatar, person.username);
 
-$("chatSub").textContent = "Direct message";
+    $("chatSub").textContent = "Direct message";
 
     $("chatEmpty").classList.add("hidden");$("messages").classList.remove("hidden");$("composer").classList.remove("hidden");
     await loadPeople(true); await loadMessages();
     $("messageInput").focus();
   }
+
   $("backButton").addEventListener("click",()=>app.classList.remove("chat-open"));
-  
-const DEFAULT_BUBBLE_SETTINGS = {
-  incoming_color: "#292938",
-  outgoing_color: "#8b5cf6",
-  incoming_text_color: "#f4f4fb",
-  outgoing_text_color: "#f4f4fb",
-  incoming_border_path: null,
-  outgoing_border_path: null
-};
-  
-let bubbleSettings = { ...DEFAULT_BUBBLE_SETTINGS };
 
-function applyBubbleSettings() {
-  const root = document.documentElement;
-
-  root.style.setProperty(
-    "--hds-incoming-color",
-    bubbleSettings.incoming_color
-  );
-
-  root.style.setProperty(
-    "--hds-outgoing-color",
-    bubbleSettings.outgoing_color
-  );
-
-  const incomingPath = bubbleSettings.incoming_border_path;
-  const outgoingPath = bubbleSettings.outgoing_border_path;
-
-  const incomingUrl = incomingPath
-    ? db.storage.from("bubble-borders").getPublicUrl(incomingPath).data.publicUrl
-    : "none";
-
-  const outgoingUrl = outgoingPath
-    ? db.storage.from("bubble-borders").getPublicUrl(outgoingPath).data.publicUrl
-    : "none";
-
-  root.style.setProperty(
-    "--hds-incoming-border",
-    incomingUrl === "none" ? "none" : `url("${incomingUrl}")`
-  );
-
-  root.style.setProperty(
-    "--hds-outgoing-border",
-    outgoingUrl === "none" ? "none" : `url("${outgoingUrl}")`
-  );
-}
-  
-function applyBubbleTextColors(incoming, outgoing) {
-  const incomingColor = incoming || "#f4f4fb";
-  const outgoingColor = outgoing || "#f4f4fb";
-
-  document.documentElement.style.setProperty(
-    "--hds-incoming-text-color", incomingColor
-  );
-
-  document.documentElement.style.setProperty(
-    "--hds-outgoing-text-color", outgoingColor
-  );
-
-  if ($("incomingTextColor")) {
-    $("incomingTextColor").value = incomingColor;
-  }
-
-  if ($("outgoingTextColor")) {
-    $("outgoingTextColor").value = outgoingColor;
-  }
-}
-
-$("incomingTextColor").addEventListener("input", () => {
-  applyBubbleTextColors(
-    $("incomingTextColor").value,
-    $("outgoingTextColor").value
-  );
-});
-
-$("outgoingTextColor").addEventListener("input", () => {
-  applyBubbleTextColors(
-    $("incomingTextColor").value,
-    $("outgoingTextColor").value
-  );
-});
-
-
-function showBubbleSettingsInForm() {
-  $("incomingBubbleColor").value = bubbleSettings.incoming_color;
-  $("outgoingBubbleColor").value = bubbleSettings.outgoing_color;
-
-  $("incomingBubbleStatus").textContent =
-    bubbleSettings.incoming_border_path
-      ? "A saved PNG border is selected."
-      : "No custom border selected.";
-
-  $("outgoingBubbleStatus").textContent =
-    bubbleSettings.outgoing_border_path
-      ? "A saved PNG border is selected."
-      : "No custom border selected.";
-}
-
-
-
-async function loadBubbleSettings() {
-  const { data, error } = await db
-    .from("chat_bubble_settings")
-    .select("user_id,incoming_color,outgoing_color,incoming_border_path,outgoing_border_path,incoming_text_color,outgoing_text_color")
-    .eq("user_id", currentUser.id)
-    .maybeSingle();
-
-  if (error) throw error;
-
-  bubbleSettings = {
-    ...DEFAULT_BUBBLE_SETTINGS,
-    ...(data || {}),
-    incoming_text_color: data?.incoming_text_color || "#f4f4fb",
-    outgoing_text_color: data?.outgoing_text_color || "#f4f4fb"
+  const DEFAULT_BUBBLE_SETTINGS = {
+    incoming_color: "#292938",
+    outgoing_color: "#8b5cf6",
+    incoming_text_color: "#f4f4fb",
+    outgoing_text_color: "#f4f4fb",
+    incoming_border_path: null,
+    outgoing_border_path: null
   };
 
-  applyBubbleSettings();
+  let bubbleSettings = { ...DEFAULT_BUBBLE_SETTINGS };
 
-  if (typeof applyBubbleTextColors === "function") {
-    applyBubbleTextColors(
-      bubbleSettings.incoming_text_color,
-      bubbleSettings.outgoing_text_color
+  function applyBubbleSettings() {
+    const root = document.documentElement;
+
+    root.style.setProperty(
+      "--hds-incoming-color",
+      bubbleSettings.incoming_color
+    );
+
+    root.style.setProperty(
+      "--hds-outgoing-color",
+      bubbleSettings.outgoing_color
+    );
+
+    const incomingPath = bubbleSettings.incoming_border_path;
+    const outgoingPath = bubbleSettings.outgoing_border_path;
+
+    const incomingUrl = incomingPath
+      ? db.storage.from("bubble-borders").getPublicUrl(incomingPath).data.publicUrl
+      : "none";
+
+    const outgoingUrl = outgoingPath
+      ? db.storage.from("bubble-borders").getPublicUrl(outgoingPath).data.publicUrl
+      : "none";
+
+    root.style.setProperty(
+      "--hds-incoming-border",
+      incomingUrl === "none" ? "none" : `url("${incomingUrl}")`
+    );
+
+    root.style.setProperty(
+      "--hds-outgoing-border",
+      outgoingUrl === "none" ? "none" : `url("${outgoingUrl}")`
     );
   }
 
-  showBubbleSettingsInForm();
-}
+  function applyBubbleTextColors(incoming, outgoing) {
+    const incomingColor = incoming || "#f4f4fb";
+    const outgoingColor = outgoing || "#f4f4fb";
 
-async function uploadBubbleBorder(file, direction) {
-  if (!file || file.type !== "image/png") {
-    throw new Error("Choose a PNG image for the message border.");
-  }
+    document.documentElement.style.setProperty(
+      "--hds-incoming-text-color", incomingColor
+    );
 
-  if (file.size > 5 * 1024 * 1024) {
-    throw new Error("The PNG border must be 5 MB or smaller.");
-  }
+    document.documentElement.style.setProperty(
+      "--hds-outgoing-text-color", outgoingColor
+    );
 
-  if (!currentUser) {
-    throw new Error("Please sign in again.");
-  }
-
-  const path =
-    `${currentUser.id}/${direction}-${crypto.randomUUID()}.png`;
-
-  const { error } = await db.storage
-    .from("bubble-borders")
-    .upload(path, file, {
-      contentType: "image/png",
-      upsert: false
-    });
-
-  if (error) throw error;
-
-  return path;
-}
-
-
-$("saveBubbleSettings").addEventListener("click", async () => {
-  if (!currentUser) return;
-
-  const button = $("saveBubbleSettings");
-  const status = $("bubbleSettingsStatus");
-
-  button.disabled = true;
-  status.textContent = "Saving...";
-
-  try {
-    const incomingFile = $("incomingBubbleFile").files?.[0];
-    const outgoingFile = $("outgoingBubbleFile").files?.[0];
-
-    const incomingColor = $("incomingBubbleColor").value;
-    const outgoingColor = $("outgoingBubbleColor").value;
-
-    
-const nextSettings = {
-  user_id: currentUser.id,
-  incoming_color: incomingColor,
-  outgoing_color: outgoingColor,
-  incoming_text_color: $("incomingTextColor").value,
-  outgoing_text_color: $("outgoingTextColor").value,
-  incoming_border_path: bubbleSettings.incoming_border_path,
-  outgoing_border_path: bubbleSettings.outgoing_border_path,
-  updated_at: new Date().toISOString()
-};
-
-    if (incomingFile) {
-      nextSettings.incoming_border_path =
-        await uploadBubbleBorder(incomingFile, "incoming");
+    if ($("incomingTextColor")) {
+      $("incomingTextColor").value = incomingColor;
     }
 
-    if (outgoingFile) {
-      nextSettings.outgoing_border_path =
-        await uploadBubbleBorder(outgoingFile, "outgoing");
+    if ($("outgoingTextColor")) {
+      $("outgoingTextColor").value = outgoingColor;
     }
+  }
 
-    const { error } = await db
+  $("incomingTextColor").addEventListener("input", () => {
+    applyBubbleTextColors(
+      $("incomingTextColor").value,
+      $("outgoingTextColor").value
+    );
+  });
+
+  $("outgoingTextColor").addEventListener("input", () => {
+    applyBubbleTextColors(
+      $("incomingTextColor").value,
+      $("outgoingTextColor").value
+    );
+  });
+
+  function showBubbleSettingsInForm() {
+    $("incomingBubbleColor").value = bubbleSettings.incoming_color;
+    $("outgoingBubbleColor").value = bubbleSettings.outgoing_color;
+
+    $("incomingBubbleStatus").textContent =
+      bubbleSettings.incoming_border_path
+        ? "A saved PNG border is selected."
+        : "No custom border selected.";
+
+    $("outgoingBubbleStatus").textContent =
+      bubbleSettings.outgoing_border_path
+        ? "A saved PNG border is selected."
+        : "No custom border selected.";
+  }
+
+  async function loadBubbleSettings() {
+    const { data, error } = await db
       .from("chat_bubble_settings")
-      .upsert(nextSettings, { onConflict: "user_id" });
+      .select("user_id,incoming_color,outgoing_color,incoming_border_path,outgoing_border_path,incoming_text_color,outgoing_text_color")
+      .eq("user_id", currentUser.id)
+      .maybeSingle();
 
     if (error) throw error;
 
     bubbleSettings = {
-      incoming_color: nextSettings.incoming_color,
-      outgoing_color: nextSettings.outgoing_color,
-      incoming_border_path: nextSettings.incoming_border_path,
-      outgoing_border_path: nextSettings.outgoing_border_path
+      ...DEFAULT_BUBBLE_SETTINGS,
+      ...(data || {}),
+      incoming_text_color: data?.incoming_text_color || "#f4f4fb",
+      outgoing_text_color: data?.outgoing_text_color || "#f4f4fb"
     };
 
     applyBubbleSettings();
+
+    if (typeof applyBubbleTextColors === "function") {
+      applyBubbleTextColors(
+        bubbleSettings.incoming_text_color,
+        bubbleSettings.outgoing_text_color
+      );
+    }
+
     showBubbleSettingsInForm();
-
-    $("incomingBubbleFile").value = "";
-    $("outgoingBubbleFile").value = "";
-
-    status.textContent = "Bubble settings saved!";
-  } catch (error) {
-    console.error("Saving bubble settings failed:", error);
-    status.textContent = error.message || "Couldn't save bubble settings.";
-  } finally {
-    button.disabled = false;
   }
-});
 
-$("resetBubbleSettings").addEventListener("click", async () => {
-  if (!currentUser) return;
+  async function uploadBubbleBorder(file, direction) {
+    if (!file || file.type !== "image/png") {
+      throw new Error("Choose a PNG image for the message border.");
+    }
 
-  const button = $("resetBubbleSettings");
-  const status = $("bubbleSettingsStatus");
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error("The PNG border must be 5 MB or smaller.");
+    }
 
-  button.disabled = true;
-  status.textContent = "Resetting...";
+    if (!currentUser) {
+      throw new Error("Please sign in again.");
+    }
 
-  try {
-    const { error } = await db
-      .from("chat_bubble_settings")
-      .upsert({
-        user_id: currentUser.id,
-        ...DEFAULT_BUBBLE_SETTINGS,
-        updated_at: new Date().toISOString()
-      }, { onConflict: "user_id" });
+    const path =
+      `${currentUser.id}/${direction}-${crypto.randomUUID()}.png`;
+
+    const { error } = await db.storage
+      .from("bubble-borders")
+      .upload(path, file, {
+        contentType: "image/png",
+        upsert: false
+      });
 
     if (error) throw error;
 
-    bubbleSettings = { ...DEFAULT_BUBBLE_SETTINGS };
-
-    applyBubbleSettings();
-    showBubbleSettingsInForm();
-
-    $("incomingBubbleFile").value = "";
-    $("outgoingBubbleFile").value = "";
-
-    status.textContent = "Restored default bubble settings.";
-  } catch (error) {
-    console.error("Resetting bubble settings failed:", error);
-    status.textContent = error.message || "Couldn't reset settings.";
-  } finally {
-    button.disabled = false;
-  }
-});
-
-async function checkBackgroundDMs() {
-  if (!currentUser) return;
-
-  const { data, error } = await db
-    .from("messages")
-    .select("id, sender_id, receiver_id")
-    .eq("receiver_id", currentUser.id)
-    .order("created_at", { ascending: false })
-    .limit(100);
-
-  if (error || !data) return;
-
-  if (!dmNotificationsReady) {
-    data.forEach(m => knownDmIds.add(String(m.id)));
-    dmNotificationsReady = true;
-    return;
+    return path;
   }
 
-  for (const message of data.slice().reverse()) {
-    const id = String(message.id);
-    if (knownDmIds.has(id)) continue;
+  $("saveBubbleSettings").addEventListener("click", async () => {
+    if (!currentUser) return;
 
-    knownDmIds.add(id);
+    const button = $("saveBubbleSettings");
+    const status = $("bubbleSettingsStatus");
 
-    if (document.hidden && message.sender_id !== currentUser.id) {
-      dmRing.currentTime = 0;
-      dmRing.play().catch(() => {});
-    }
-  }
-}
+    button.disabled = true;
+    status.textContent = "Saving...";
 
+    try {
+      const incomingFile = $("incomingBubbleFile").files?.[0];
+      const outgoingFile = $("outgoingBubbleFile").files?.[0];
 
+      const incomingColor = $("incomingBubbleColor").value;
+      const outgoingColor = $("outgoingBubbleColor").value;
 
-async function loadMessages(quiet = false) {
-  if (!currentUser || !selectedUser) return;
+      const nextSettings = {
+        user_id: currentUser.id,
+        incoming_color: incomingColor,
+        outgoing_color: outgoingColor,
+        incoming_text_color: $("incomingTextColor").value,
+        outgoing_text_color: $("outgoingTextColor").value,
+        incoming_border_path: bubbleSettings.incoming_border_path,
+        outgoing_border_path: bubbleSettings.outgoing_border_path,
+        updated_at: new Date().toISOString()
+      };
 
-  const other = selectedUser.id;
+      if (incomingFile) {
+        nextSettings.incoming_border_path =
+          await uploadBubbleBorder(incomingFile, "incoming");
+      }
 
-  const { data, error } = await db
-    .from("messages")
-    .select("id,sender_id,receiver_id,content,created_at")
-    .or(
-      `and(sender_id.eq.${currentUser.id},receiver_id.eq.${other}),and(sender_id.eq.${other},receiver_id.eq.${currentUser.id})`
-    )
-    .order("created_at", { ascending: true })
-    .limit(200);
+      if (outgoingFile) {
+        nextSettings.outgoing_border_path =
+          await uploadBubbleBorder(outgoingFile, "outgoing");
+      }
 
-  if (error) {
-    if (!quiet) {
-      $("messages").innerHTML =
-        '<div class="muted small">Could not load messages.</div>';
-    }
-    return;
-  }
+      const { error } = await db
+        .from("chat_bubble_settings")
+        .upsert(nextSettings, { onConflict: "user_id" });
 
-  // Don't update a conversation that has since been switched.
-  if (selectedUser?.id !== other) return;
+      if (error) throw error;
 
-  const messages = data || [];
-  const box = $("messages");
+      bubbleSettings = {
+        incoming_color: nextSettings.incoming_color,
+        outgoing_color: nextSettings.outgoing_color,
+        incoming_border_path: nextSettings.incoming_border_path,
+        outgoing_border_path: nextSettings.outgoing_border_path
+      };
 
-  const wasNearBottom =
-    box.scrollHeight - box.scrollTop - box.clientHeight < 100;
+      applyBubbleSettings();
+      showBubbleSettingsInForm();
 
-  const messageIds = new Set(messages.map(m => String(m.id)));
-  let addedMessage = false;
+      $("incomingBubbleFile").value = "";
+      $("outgoingBubbleFile").value = "";
 
-  // Remove deleted messages without touching existing images.
-  box.querySelectorAll("[data-message-id]").forEach(row => {
-    if (!messageIds.has(row.dataset.messageId)) {
-      row.remove();
+      status.textContent = "Bubble settings saved!";
+    } catch (error) {
+      console.error("Saving bubble settings failed:", error);
+      status.textContent = error.message || "Couldn't save bubble settings.";
+    } finally {
+      button.disabled = false;
     }
   });
 
-  // Find images that still need resolving.
-  const neededImageIds = [
-    ...new Set(
-      messages
-        .filter(m => {
-          const imageId = m.content.match(
-            /^hds-image:([0-9a-f-]{36})$/i
-          )?.[1];
+  $("resetBubbleSettings").addEventListener("click", async () => {
+    if (!currentUser) return;
 
-          if (!imageId) return false;
+    const button = $("resetBubbleSettings");
+    const status = $("bubbleSettingsStatus");
 
-          const existing = box.querySelector(
-            `[data-message-id="${CSS.escape(String(m.id))}"]`
-          );
+    button.disabled = true;
+    status.textContent = "Resetting...";
 
-          // Already rendered successfully? Leave it alone.
-          if (existing?.querySelector("img.hds-chat-image")) {
-            return false;
-          }
+    try {
+      const { error } = await db
+        .from("chat_bubble_settings")
+        .upsert({
+          user_id: currentUser.id,
+          ...DEFAULT_BUBBLE_SETTINGS,
+          updated_at: new Date().toISOString()
+        }, { onConflict: "user_id" });
 
-          return true;
-        })
-        .map(m => m.content.match(
-          /^hds-image:([0-9a-f-]{36})$/i
-        )?.[1])
-        .filter(Boolean)
-      )
-  ];
+      if (error) throw error;
 
-  // Resolve image URLs only when necessary.
-  const missingIds = neededImageIds.filter(
-    id => !hdsImageUrlCache.has(id) ||
-          hdsImageUrlCache.get(id).expiresAt < Date.now()
-  );
+      bubbleSettings = { ...DEFAULT_BUBBLE_SETTINGS };
 
-  if (missingIds.length) {
-    const { data: attachments, error: attachmentError } = await db
-      .from("file_attachments")
-      .select("id,storage_path,file_name")
-      .in("id", missingIds);
+      applyBubbleSettings();
+      showBubbleSettingsInForm();
 
-    if (!attachmentError) {
-      for (const attachment of attachments || []) {
-        const { data: signedData, error: signedError } =
-          await db.storage
-            .from("hds-attachments")
-            .createSignedUrl(attachment.storage_path, 3600);
+      $("incomingBubbleFile").value = "";
+      $("outgoingBubbleFile").value = "";
 
-        if (!signedError && signedData?.signedUrl) {
-          hdsImageUrlCache.set(attachment.id, {
-            url: signedData.signedUrl,
-            name: attachment.file_name,
-            expiresAt: Date.now() + 55 * 60 * 1000
-          });
-        }
+      status.textContent = "Restored default bubble settings.";
+    } catch (error) {
+      console.error("Resetting bubble settings failed:", error);
+      status.textContent = error.message || "Couldn't reset settings.";
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  async function checkBackgroundDMs() {
+    if (!currentUser) return;
+
+    const { data, error } = await db
+      .from("messages")
+      .select("id, sender_id, receiver_id")
+      .eq("receiver_id", currentUser.id)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (error || !data) return;
+
+    if (!dmNotificationsReady) {
+      data.forEach(m => knownDmIds.add(String(m.id)));
+      dmNotificationsReady = true;
+      return;
+    }
+
+    for (const message of data.slice().reverse()) {
+      const id = String(message.id);
+      if (knownDmIds.has(id)) continue;
+
+      knownDmIds.add(id);
+
+      if (document.hidden && message.sender_id !== currentUser.id) {
+        dmRing.currentTime = 0;
+        dmRing.play().catch(() => {});
       }
-    } else {
-      console.error("Image attachment lookup failed:", attachmentError);
     }
   }
 
-  // Only create new message elements.
-  for (const message of messages) {
-    const id = String(message.id);
+  // Updated message loader: existing message and image elements are not
+  // recreated during polling, preventing the images from flickering.
+  async function loadMessages(quiet = false) {
+    if (!currentUser || !selectedUser) return;
 
-    let row = box.querySelector(
-      `[data-message-id="${CSS.escape(id)}"]`
-    );
+    const other = selectedUser.id;
 
-    const imageId = message.content.match(
-      /^hds-image:([0-9a-f-]{36})$/i
-    )?.[1];
+    const { data, error } = await db
+      .from("messages")
+      .select("id,sender_id,receiver_id,content,created_at")
+      .or(
+        `and(sender_id.eq.${currentUser.id},receiver_id.eq.${other}),and(sender_id.eq.${other},receiver_id.eq.${currentUser.id})`
+      )
+      .order("created_at", { ascending: true })
+      .limit(200);
 
-    const attachment = imageId
-      ? hdsImageUrlCache.get(imageId)
-      : null;
-
-    if (!row) {
-      row = document.createElement("div");
-      row.className = "msg-row";
-      row.dataset.messageId = id;
-
-      if (message.sender_id === currentUser.id) {
-        row.classList.add("mine");
+    if (error) {
+      if (!quiet) {
+        $("messages").innerHTML =
+          '<div class="muted small">Could not load messages.</div>';
       }
-
-      const bubble = document.createElement("div");
-      bubble.className = "bubble";
-
-      const time = document.createElement("div");
-      time.className = "msg-time";
-      time.textContent =
-        `${message.sender_id === currentUser.id
-          ? "You"
-          : selectedUser.username} · ${prettyTime(message.created_at)}`;
-
-      row.appendChild(bubble);
-      row.appendChild(time);
-
-      box.appendChild(row);
-      addedMessage = true;
+      return;
     }
 
-    const bubble = row.querySelector(".bubble");
+    if (selectedUser?.id !== other) return;
 
-    // Never replace an image that has already rendered.
-    if (imageId && !bubble.querySelector("img.hds-chat-image")) {
-      if (attachment) {
+    const messages = data || [];
+    const box = $("messages");
+
+    const wasNearBottom =
+      box.scrollHeight - box.scrollTop - box.clientHeight < 100;
+
+    const messageIds = new Set(messages.map(m => String(m.id)));
+    let addedMessage = false;
+
+    // Remove deleted messages without rebuilding existing images.
+    box.querySelectorAll("[data-message-id]").forEach(row => {
+      if (!messageIds.has(row.dataset.messageId)) {
+        row.remove();
+      }
+    });
+
+    // Find image attachments that need a URL.
+    const neededImageIds = [
+      ...new Set(
+        messages
+          .map(m => m.content.match(/^hds-image:([0-9a-f-]{36})$/i)?.[1])
+          .filter(Boolean)
+      )
+    ];
+
+    const missingIds = neededImageIds.filter(id =>
+      !hdsImageUrlCache.has(id) ||
+      hdsImageUrlCache.get(id).expiresAt < Date.now()
+    );
+
+    if (missingIds.length) {
+      const { data: attachments, error: attachmentError } = await db
+        .from("file_attachments")
+        .select("id,storage_path,file_name")
+        .in("id", missingIds);
+
+      if (!attachmentError) {
+        for (const attachment of attachments || []) {
+          const { data: signedData, error: signedError } =
+            await db.storage
+              .from("hds-attachments")
+              .createSignedUrl(attachment.storage_path, 3600);
+
+          if (!signedError && signedData?.signedUrl) {
+            hdsImageUrlCache.set(attachment.id, {
+              url: signedData.signedUrl,
+              name: attachment.file_name,
+              expiresAt: Date.now() + 55 * 60 * 1000
+            });
+          }
+        }
+      } else {
+        console.error("Image attachment lookup failed:", attachmentError);
+      }
+    }
+
+    // Create new rows only. Existing image elements remain in place.
+    for (const message of messages) {
+      const id = String(message.id);
+
+      let row = box.querySelector(
+        `[data-message-id="${CSS.escape(id)}"]`
+      );
+
+      const imageId = message.content.match(
+        /^hds-image:([0-9a-f-]{36})$/i
+      )?.[1];
+
+      const attachment = imageId
+        ? hdsImageUrlCache.get(imageId)
+        : null;
+
+      if (!row) {
+        row = document.createElement("div");
+        row.className = "msg-row";
+        row.dataset.messageId = id;
+
+        if (message.sender_id === currentUser.id) {
+          row.classList.add("mine");
+        }
+
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+
+        const time = document.createElement("div");
+        time.className = "msg-time";
+        time.textContent =
+          `${message.sender_id === currentUser.id
+            ? "You"
+            : selectedUser.username} · ${prettyTime(message.created_at)}`;
+
+        row.appendChild(bubble);
+        row.appendChild(time);
+        box.appendChild(row);
+
+        addedMessage = true;
+      }
+
+      const bubble = row.querySelector(".bubble");
+
+      if (imageId) {
+        // Keep a successfully rendered image untouched.
+        if (!bubble.querySelector("img.hds-chat-image")) {
+          if (attachment) {
+            const image = document.createElement("img");
+            image.className = "hds-chat-image";
+            image.src = attachment.url;
+            image.alt = attachment.name || "Image";
+            image.loading = "lazy";
+
+            bubble.replaceChildren(image);
+          } else if (!bubble.textContent) {
+            const placeholder = document.createElement("span");
+            placeholder.className = "bubble-text";
+            placeholder.textContent = "Loading image...";
+            bubble.appendChild(placeholder);
+          }
+        }
+      } else if (!bubble.hasChildNodes()) {
+        const text = document.createElement("span");
+        text.className = "bubble-text";
+        text.textContent = message.content;
+        bubble.appendChild(text);
+      }
+    }
+
+    // Replace a loading placeholder if its attachment URL has now loaded.
+    for (const message of messages) {
+      const imageId = message.content.match(
+        /^hds-image:([0-9a-f-]{36})$/i
+      )?.[1];
+
+      if (!imageId) continue;
+
+      const attachment = hdsImageUrlCache.get(imageId);
+      if (!attachment) continue;
+
+      const row = box.querySelector(
+        `[data-message-id="${CSS.escape(String(message.id))}"]`
+      );
+
+      const bubble = row?.querySelector(".bubble");
+
+      if (
+        bubble &&
+        !bubble.querySelector("img.hds-chat-image") &&
+        bubble.querySelector(".bubble-text")
+      ) {
         const image = document.createElement("img");
         image.className = "hds-chat-image";
         image.src = attachment.url;
@@ -1148,41 +1160,23 @@ async function loadMessages(quiet = false) {
         image.loading = "lazy";
 
         bubble.replaceChildren(image);
-      } else if (!bubble.textContent) {
-        const placeholder = document.createElement("span");
-        placeholder.className = "bubble-text";
-        placeholder.textContent = "Loading image...";
-        bubble.appendChild(placeholder);
       }
-    } else if (!imageId && !bubble.hasChildNodes()) {
-      const text = document.createElement("span");
-      text.className = "bubble-text";
-      text.textContent = message.content;
-      bubble.appendChild(text);
     }
+
+    if (!messages.length && !box.querySelector(".day-note")) {
+      box.innerHTML =
+        '<div class="day-note">This is the beginning of your conversation. Say hi 👋</div>';
+    } else if (messages.length) {
+      box.querySelector(".day-note")?.remove();
+    }
+
+    if (addedMessage && (!quiet || wasNearBottom)) {
+      box.scrollTop = box.scrollHeight;
+    }
+
+    lastMessagesRenderedAt = Date.now();
+    lastRenderedImagesFailed = false;
   }
-
-  // Keep the empty conversation message.
-  if (!messages.length && !box.querySelector(".day-note")) {
-    box.innerHTML =
-      '<div class="day-note">This is the beginning of your conversation. Say hi 👋</div>';
-  } else if (messages.length) {
-    box.querySelector(".day-note")?.remove();
-  }
-
-  if (addedMessage && (!quiet || wasNearBottom)) {
-    box.scrollTop = box.scrollHeight;
-  }
-}
-
-  lastMessagesRenderedAt = Date.now();
-  lastRenderedImagesFailed = imageResolutionFailed;
-
-  if (!quiet || wasNearBottom) {
-    box.scrollTop = box.scrollHeight;
-  }
-}
-
 
   $("composer").addEventListener("submit", async event => {
     event.preventDefault();
@@ -1197,228 +1191,219 @@ async function loadMessages(quiet = false) {
     finally{button.disabled=false;input.focus();}
   });
 
+  $("signOut").addEventListener("click", async () => {
+    await db.auth.signOut();
+    currentUser = null;
+    myProfile = null;
+    selectedUser = null;
+    showAuth();
+    setAuthMode(false);
+  });
 
-$("signOut").addEventListener("click", async () => {
-  await db.auth.signOut();
-  currentUser = null;
-  myProfile = null;
-  selectedUser = null;
-  showAuth();
-  setAuthMode(false);
-});
+  $("openSettings").addEventListener("click", () => {
+    $("settingsPanel").classList.toggle("hidden");
+  });
 
-$("openSettings").addEventListener("click", () => {
-  $("settingsPanel").classList.toggle("hidden");
-});
+  $("closeSettings").addEventListener("click", () => {
+    $("settingsPanel").classList.add("hidden");
+  });
 
-$("closeSettings").addEventListener("click", () => {
-  $("settingsPanel").classList.add("hidden");
-});
+  $("changeAvatar").addEventListener("click", () => {
+    $("avatarFile").click();
+  });
 
-$("changeAvatar").addEventListener("click", () => {
-  $("avatarFile").click();
-});
+  $("avatarFile").addEventListener("change", async event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
+    const status = $("avatarStatus");
+    const button = $("changeAvatar");
 
-$("avatarFile").addEventListener("change", async event => {
-  const file = event.target.files?.[0];
-  if (!file) return;
+    try {
+      if (!["image/png", "image/jpeg"].includes(file.type)) {
+        throw new Error("Choose a PNG or JPEG image.");
+      }
 
-  const status = $("avatarStatus");
-  const button = $("changeAvatar");
+      if (file.size > 5 * 1024 * 1024) {
+        throw new Error("The image must be 5 MB or smaller.");
+      }
 
-  try {
-    if (!["image/png", "image/jpeg"].includes(file.type)) {
-      throw new Error("Choose a PNG or JPEG image.");
-    }
+      if (!currentUser || !myProfile) {
+        throw new Error("Please sign in again.");
+      }
 
-    if (file.size > 5 * 1024 * 1024) {
-      throw new Error("The image must be 5 MB or smaller.");
-    }
+      button.disabled = true;
+      status.textContent = "Uploading...";
 
-    if (!currentUser || !myProfile) {
-      throw new Error("Please sign in again.");
-    }
+      const extension = file.type === "image/png" ? "png" : "jpg";
+      const path = `${currentUser.id}/${crypto.randomUUID()}.${extension}`;
 
-    button.disabled = true;
-    status.textContent = "Uploading...";
+      const { error: uploadError } = await db.storage
+        .from("avatars")
+        .upload(path, file, {
+          contentType: file.type,
+          upsert: false
+        });
 
-    const extension = file.type === "image/png" ? "png" : "jpg";
-    const path = `${currentUser.id}/${crypto.randomUUID()}.${extension}`;
+      if (uploadError) throw uploadError;
 
-    const { error: uploadError } = await db.storage
-      .from("avatars")
-      .upload(path, file, {
-        contentType: file.type,
-        upsert: false
+      const { data: urlData } = db.storage
+        .from("avatars")
+        .getPublicUrl(path);
+
+      const { error: saveError } = await db.rpc("set_my_avatar", {
+        p_avatar_url: urlData.publicUrl
       });
 
-    if (uploadError) throw uploadError;
+      if (saveError) throw saveError;
 
-    const { data: urlData } = db.storage
-      .from("avatars")
-      .getPublicUrl(path);
+      const { data: profile, error: profileError } = await db
+        .from("profiles")
+        .select("id,username,verified,avatar")
+        .eq("id", currentUser.id)
+        .single();
 
-    const { error: saveError } = await db.rpc("set_my_avatar", {
-      p_avatar_url: urlData.publicUrl
-    });
+      if (profileError) throw profileError;
 
-    if (saveError) throw saveError;
+      myProfile = profile;
 
-    const { data: profile, error: profileError } = await db
-      .from("profiles")
-      .select("id,username,verified,avatar")
-      .eq("id", currentUser.id)
-      .single();
+      setAvatar($("myAvatar"), profile.avatar, profile.username);
 
-    if (profileError) throw profileError;
+      status.textContent = "Profile picture updated!";
 
-    myProfile = profile;
-
-    setAvatar($("myAvatar"), profile.avatar, profile.username);
-
-    status.textContent = "Profile picture updated!";
-
-    // Refresh the people list if your existing function supports it.
-    if (typeof loadPeople === "function") {
-      await loadPeople(true);
+      if (typeof loadPeople === "function") {
+        await loadPeople(true);
+      }
+    } catch (error) {
+      console.error("Avatar upload failed:", error);
+      status.textContent = error.message || "Upload failed.";
+    } finally {
+      button.disabled = false;
+      event.target.value = "";
     }
-  } catch (error) {
-    console.error("Avatar upload failed:", error);
-    status.textContent = error.message || "Upload failed.";
-  } finally {
-    button.disabled = false;
-    event.target.value = "";
-  }
-});
+  });
 
-const HDS_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
-const HDS_IMAGE_TYPES = new Set([
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "image/gif"
-]);
+  const HDS_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+  const HDS_IMAGE_TYPES = new Set([
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "image/gif"
+  ]);
 
-$("messageInput").addEventListener("paste", async event => {
-  const items = Array.from(event.clipboardData?.items || []);
-  const imageItem = items.find(item =>
-    item.kind === "file" &&
-    HDS_IMAGE_TYPES.has(item.type)
-  );
+  $("messageInput").addEventListener("paste", async event => {
+    const items = Array.from(event.clipboardData?.items || []);
+    const imageItem = items.find(item =>
+      item.kind === "file" &&
+      HDS_IMAGE_TYPES.has(item.type)
+    );
 
-  // Keep ordinary text pasting unchanged.
-  if (!imageItem) return;
+    if (!imageItem) return;
 
-  event.preventDefault();
+    event.preventDefault();
 
-  const file = imageItem.getAsFile();
-  if (!file) return;
+    const file = imageItem.getAsFile();
+    if (!file) return;
 
-  const input = $("messageInput");
-  const sendButton = $("composer").querySelector("button");
+    const input = $("messageInput");
+    const sendButton = $("composer").querySelector("button");
 
-  if (!currentUser || !selectedUser) {
-    alert("Open a conversation first.");
-    return;
-  }
-
-  if (file.size > HDS_IMAGE_MAX_BYTES) {
-    alert("Images must be 5 MB or smaller.");
-    return;
-  }
-
-  const receiverId = selectedUser.id;
-  const senderId = currentUser.id;
-  const extension = {
-    "image/png": "png",
-    "image/jpeg": "jpg",
-    "image/webp": "webp",
-    "image/gif": "gif"
-  }[file.type];
-
-  const fileName = `pasted-${crypto.randomUUID()}.${extension}`;
-  const storagePath = `${senderId}/${fileName}`;
-
-  input.disabled = true;
-  sendButton.disabled = true;
-  input.placeholder = "Sending image...";
-
-  let uploaded = false;
-
-  try {
-    const { error: uploadError } = await db.storage
-      .from("hds-attachments")
-      .upload(storagePath, file, {
-        contentType: file.type,
-        upsert: false
-      });
-
-    if (uploadError) throw uploadError;
-    uploaded = true;
-
-    const { data: attachment, error: attachmentError } = await db
-      .from("file_attachments")
-      .insert({
-        sender_id: senderId,
-        receiver_id: receiverId,
-        storage_path: storagePath,
-        file_name: fileName,
-        mime_type: file.type,
-        size_bytes: file.size
-      })
-      .select("id")
-      .single();
-
-    if (attachmentError) throw attachmentError;
-
-    const { error: messageError } = await db
-      .from("messages")
-      .insert({
-        sender_id: senderId,
-        receiver_id: receiverId,
-        content: `hds-image:${attachment.id}`
-      });
-
-    if (messageError) {
-      throw new Error(
-        "The image uploaded, but its message could not be sent: " +
-        messageError.message
-      );
+    if (!currentUser || !selectedUser) {
+      alert("Open a conversation first.");
+      return;
     }
 
-    // Clear any text that was already in the input only after success.
-    input.value = "";
-
-    // Refresh only if the same conversation is still open.
-    if (selectedUser?.id === receiverId) {
-      await loadMessages();
-    }
-  } catch (error) {
-    console.error("HDS image paste failed:", error);
-
-    // Avoid deleting a file after its message was successfully sent.
-    if (uploaded) {
-      console.warn(
-        "An upload may remain in storage if message creation failed.",
-        storagePath
-      );
+    if (file.size > HDS_IMAGE_MAX_BYTES) {
+      alert("Images must be 5 MB or smaller.");
+      return;
     }
 
-    alert(error.message || "Image couldn't be sent.");
-  } finally {
-    input.disabled = false;
-    sendButton.disabled = false;
-    input.placeholder = "Write a message…";
-    input.focus();
-  }
-});
+    const receiverId = selectedUser.id;
+    const senderId = currentUser.id;
+    const extension = {
+      "image/png": "png",
+      "image/jpeg": "jpg",
+      "image/webp": "webp",
+      "image/gif": "gif"
+    }[file.type];
+
+    const fileName = `pasted-${crypto.randomUUID()}.${extension}`;
+    const storagePath = `${senderId}/${fileName}`;
+
+    input.disabled = true;
+    sendButton.disabled = true;
+    input.placeholder = "Sending image...";
+
+    let uploaded = false;
+
+    try {
+      const { error: uploadError } = await db.storage
+        .from("hds-attachments")
+        .upload(storagePath, file, {
+          contentType: file.type,
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+      uploaded = true;
+
+      const { data: attachment, error: attachmentError } = await db
+        .from("file_attachments")
+        .insert({
+          sender_id: senderId,
+          receiver_id: receiverId,
+          storage_path: storagePath,
+          file_name: fileName,
+          mime_type: file.type,
+          size_bytes: file.size
+        })
+        .select("id")
+        .single();
+
+      if (attachmentError) throw attachmentError;
+
+      const { error: messageError } = await db
+        .from("messages")
+        .insert({
+          sender_id: senderId,
+          receiver_id: receiverId,
+          content: `hds-image:${attachment.id}`
+        });
+
+      if (messageError) {
+        throw new Error(
+          "The image uploaded, but its message could not be sent: " +
+          messageError.message
+        );
+      }
+
+      input.value = "";
+
+      if (selectedUser?.id === receiverId) {
+        await loadMessages();
+      }
+    } catch (error) {
+      console.error("HDS image paste failed:", error);
+
+      if (uploaded) {
+        console.warn(
+          "An upload may remain in storage if message creation failed.",
+          storagePath
+        );
+      }
+
+      alert(error.message || "Image couldn't be sent.");
+    } finally {
+      input.disabled = false;
+      sendButton.disabled = false;
+      input.placeholder = "Write a message…";
+      input.focus();
+    }
+  });
 
   setAuthMode(false);
-boot();
+  boot();
 })();
-
-
 </script>
 </body>
 </html>
