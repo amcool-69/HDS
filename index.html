@@ -37,6 +37,8 @@
     .search-wrap{padding:0 13px}.search-wrap input{padding:10px 12px;font-size:13px}
     .people{padding:0 8px;overflow:auto;flex:1}.person{width:100%;display:flex;align-items:center;gap:11px;text-align:left;background:transparent;color:var(--text);padding:11px 10px;border-radius:11px;margin:2px 0}.person:hover,.person.active{background:#232035}.person.active{box-shadow:inset 3px 0 #9b75ff}
     .avatar{flex:none;width:38px;height:38px;border-radius:13px;background:linear-gradient(135deg,#514071,#25243a);display:grid;place-items:center;font-weight:800;color:#e3d7ff}.person-info{min-width:0;flex:1}.person-name{font-size:13px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.person-sub{font-size:11px;color:var(--muted);margin-top:3px}
+    .unread-count{flex:none;min-width:21px;height:21px;padding:0 6px;border-radius:999px;background:#8b5cf6;color:#fff;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 2px 8px #8b5cf644}
+
     
 .side-footer{border-top:1px solid var(--line);padding:13px;display:flex;align-items:center;gap:10px}
 .me-text{min-width:0;flex:1}
@@ -483,6 +485,7 @@ function stopRealtime() {
   }
 }
   let signupMode = false, peopleCache = [], refreshTimer = null, searchTimer = null;
+  let unreadCounts = new Map();
   const dmRing = new Audio("./ring.mp3");
   dmRing.preload = "auto";
   let knownDmIds = new Set();
@@ -562,8 +565,14 @@ function stopRealtime() {
     if(data.session) await enterApp(data.session.user);
     else showAuth();
     db.auth.onAuthStateChange((event,session)=>{
-      if(event==="SIGNED_OUT"){currentUser=null;selectedUser=null;stopRefresh();showAuth();}
-      else if(session && !currentUser){setTimeout(()=>enterApp(session.user),0);}
+      if(event==="SIGNED_OUT"){
+        currentUser=null;
+        myProfile=null;
+        selectedUser=null;
+        unreadCounts.clear();
+        stopRefresh();
+        showAuth();
+      }
     });
   }
 
@@ -652,10 +661,10 @@ messagesChannel = db
       schema: "public",
       table: "messages"
     },
-    payload => {
+    async payload => {
       const message = payload.new || payload.old;
 
-      if (!message) return;
+      if (!message || !currentUser) return;
 
       // Only process messages involving this account.
       if (
@@ -663,25 +672,37 @@ messagesChannel = db
         message.receiver_id !== currentUser.id
       ) return;
 
-      // Refresh the open conversation when it changes.
-      if (
-        selectedUser &&
+      const isIncoming = message.receiver_id === currentUser.id;
+      const isOpenConversation = selectedUser &&
         (
           message.sender_id === selectedUser.id ||
           message.receiver_id === selectedUser.id
-        )
-      ) {
-        loadMessages(true);
+        );
+
+      // Refresh the open conversation when it changes.
+      if (isOpenConversation) {
+        await loadMessages(true);
       }
 
       // Play the notification sound for incoming messages.
       if (
         payload.eventType === "INSERT" &&
-        message.receiver_id === currentUser.id &&
+        isIncoming &&
         document.hidden
       ) {
         dmRing.currentTime = 0;
         dmRing.play().catch(() => {});
+      }
+
+      // If the recipient is actively viewing this conversation, mark it read.
+      if (
+        isIncoming &&
+        isOpenConversation &&
+        isViewingConversation(message.sender_id)
+      ) {
+        await markConversationRead(message.sender_id);
+      } else if (isIncoming || payload.eventType === "UPDATE") {
+        await loadUnreadCounts();
       }
     }
   )
@@ -701,38 +722,117 @@ messagesChannel = db
   stopRealtime();
 }
 
-  async function loadPeople(quiet=false){
-    if(!currentUser||!myProfile)return;
-    const term=$("userSearch").value.trim();
+  async function loadUnreadCounts(shouldRender = true) {
+    if (!currentUser) return;
 
-    let query=db.from("profiles").select("id,username,verified,avatar").neq("id",currentUser.id).order("username").limit(100);
+    const { data, error } = await db.rpc("get_hds_unread_counts");
 
-    if(term)query=query.ilike("username",`%${term.replace(/[%_\\]/g,"\\$&")}%`);
-    const {data,error}=await query;
-    if(error){if(!quiet)showFatal("Couldn't load users. Check your profiles table permissions.");return;}
-    peopleCache=data||[];
-    const list=$("people");
-    if(!peopleCache.length){list.innerHTML=`<div class="muted small" style="padding:12px">${term?"No users match that search.":"No other users yet. Share HDS with a friend!"}</div>`;return;}
+    if (error) {
+      console.error("Unread message counts could not be loaded:", error);
+      return;
+    }
 
-    list.innerHTML = peopleCache.map(person => `
-      <button class="person ${selectedUser?.id === person.id ? "active" : ""}" data-id="${escapeHtml(person.id)}">
-        <span class="avatar">${person.avatar ? `<img src="${escapeHtml(person.avatar)}" alt="">` : escapeHtml(initials(person.username))}</span>
-        <span class="person-info">
-          <span class="person-name">
-            ${escapeHtml(person.username)}${person.verified === true ? ` <img class="verified-badge" src="https://amcool-69.github.io/HDS/verified.png" alt="Verified" title="Verified account">` : ""}
+    unreadCounts = new Map(
+      (data || []).map(row => [
+        String(row.sender_id),
+        Number(row.unread_count) || 0
+      ])
+    );
+
+    if (shouldRender) renderPeople();
+  }
+
+  function renderPeople() {
+    const list = $("people");
+    const term = $("userSearch").value.trim();
+
+    if (!peopleCache.length) {
+      list.innerHTML = `<div class="muted small" style="padding:12px">${term ? "No users match that search." : "No other users yet. Share HDS with a friend!"}</div>`;
+      return;
+    }
+
+    list.innerHTML = peopleCache.map(person => {
+      const unread = unreadCounts.get(String(person.id)) || 0;
+
+      return `
+        <button class="person ${selectedUser?.id === person.id ? "active" : ""}" data-id="${escapeHtml(person.id)}">
+          <span class="avatar">${person.avatar ? `<img src="${escapeHtml(person.avatar)}" alt="">` : escapeHtml(initials(person.username))}</span>
+          <span class="person-info">
+            <span class="person-name">
+              ${escapeHtml(person.username)}${person.verified === true ? ` <img class="verified-badge" src="https://amcool-69.github.io/HDS/verified.png" alt="Verified" title="Verified account">` : ""}
+            </span>
+            <span class="person-sub">Direct message</span>
           </span>
-          <span class="person-sub">Direct message</span>
-        </span>
-      </button>
-    `).join("");
+          ${unread > 0 ? `<span class="unread-count" aria-label="${unread} unread messages">${unread > 99 ? "99+" : unread}</span>` : ""}
+        </button>
+      `;
+    }).join("");
 
-    list.querySelectorAll("[data-id]").forEach(button=>button.addEventListener("click",()=>selectPerson(peopleCache.find(p=>p.id===button.dataset.id))));
+    list.querySelectorAll("[data-id]").forEach(button =>
+      button.addEventListener("click", () =>
+        selectPerson(peopleCache.find(person => person.id === button.dataset.id))
+      )
+    );
+  }
+
+  async function loadPeople(quiet = false) {
+    if (!currentUser || !myProfile) return;
+
+    const term = $("userSearch").value.trim();
+
+    let query = db
+      .from("profiles")
+      .select("id,username,verified,avatar")
+      .neq("id", currentUser.id)
+      .order("username")
+      .limit(100);
+
+    if (term) {
+      query = query.ilike("username", `%${term.replace(/[%_\\]/g, "\\$&")}%`);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      if (!quiet) showFatal("Couldn't load users. Check your profiles table permissions.");
+      return;
+    }
+
+    peopleCache = data || [];
+    await loadUnreadCounts(false);
+    renderPeople();
   }
 
   $("userSearch").addEventListener("input",()=>{
     if(searchTimer)clearTimeout(searchTimer);
     searchTimer=setTimeout(()=>loadPeople(),180);
   });
+
+  function isViewingConversation(userId) {
+    const desktopLayout = window.matchMedia("(min-width: 681px)").matches;
+
+    return Boolean(
+      selectedUser?.id === userId &&
+      !document.hidden &&
+      !app.classList.contains("hidden") &&
+      (desktopLayout || app.classList.contains("chat-open"))
+    );
+  }
+
+  async function markConversationRead(senderId) {
+    if (!currentUser || !senderId) return;
+
+    const { error } = await db.rpc("mark_hds_conversation_read", {
+      p_sender_id: senderId
+    });
+
+    if (error) {
+      console.error("Could not mark HDS conversation as read:", error);
+      return;
+    }
+
+    await loadUnreadCounts();
+  }
 
   async function selectPerson(person){
     if(!person||person.id===currentUser.id)return;
@@ -750,7 +850,9 @@ messagesChannel = db
     $("chatSub").textContent = "Direct message";
 
     $("chatEmpty").classList.add("hidden");$("messages").classList.remove("hidden");$("composer").classList.remove("hidden");
-    await loadPeople(true); await loadMessages();
+    await loadPeople(true);
+    await loadMessages();
+    await markConversationRead(person.id);
     $("messageInput").focus();
   }
 
